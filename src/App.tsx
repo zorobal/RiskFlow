@@ -18,6 +18,7 @@ import ComplianceModule from './components/ComplianceModule';
 import SuperAdminModule from './components/SuperAdminModule';
 import LoginModule from './components/LoginModule';
 import DemoModule from './components/DemoModule';
+import { getSupabaseClient, pullAllFromSupabase, pushAllToSupabase } from './lib/supabase';
 
 import { 
   SOGESTI_CONFIG, 
@@ -261,6 +262,100 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('grc_showDemo19', String(showDemo));
   }, [showDemo]);
+
+  // Supabase Auto-sync Pull on mount
+  useEffect(() => {
+    const isAutoSync = localStorage.getItem('supabase_auto_sync') === 'true';
+    if (isAutoSync) {
+      const client = getSupabaseClient();
+      if (client) {
+        console.log('[Supabase Auto-Sync] Récupération initiale des données...');
+        pullAllFromSupabase(client).then(res => {
+          if (res.success && res.data) {
+            const d = res.data;
+            if (d.tenants && d.tenants.length > 0) setTenants(d.tenants);
+            if (d.users && d.users.length > 0) setUsers(d.users);
+            if (d.risks && d.risks.length > 0) setRisks(d.risks);
+            if (d.actions && d.actions.length > 0) setActions(d.actions);
+            if (d.auditLogs && d.auditLogs.length > 0) setAuditLogs(d.auditLogs);
+            if (d.fonctions && d.fonctions.length > 0) setFonctions(d.fonctions);
+            if (d.affectations && d.affectations.length > 0) setAffectations(d.affectations);
+            if (d.rules && d.rules.length > 0) setRules(d.rules);
+            if (d.accessProfiles && d.accessProfiles.length > 0) setAccessProfiles(d.accessProfiles);
+            if (d.auditMissions && d.auditMissions.length > 0) setAuditMissions(d.auditMissions);
+            if (d.auditFindings && d.auditFindings.length > 0) setAuditFindings(d.auditFindings);
+            if (d.complianceFrameworks && d.complianceFrameworks.length > 0) setComplianceFrameworks(d.complianceFrameworks);
+            if (d.complianceObligations && d.complianceObligations.length > 0) setComplianceObligations(d.complianceObligations);
+            if (d.complianceIncidents && d.complianceIncidents.length > 0) setComplianceIncidents(d.complianceIncidents);
+            if (d.entreprises && d.entreprises.length > 0) setEntreprises(d.entreprises);
+            if (d.licences && d.licences.length > 0) setLicences(d.licences);
+            if (d.historiqueLicences && d.historiqueLicences.length > 0) setHistoriqueLicences(d.historiqueLicences);
+            console.log('[Supabase Auto-Sync] Données synchronisées.');
+          }
+        });
+      }
+    }
+  }, []);
+
+  // Supabase Auto-sync Push on changes (throttled by 2-second debounce)
+  useEffect(() => {
+    const isAutoSync = localStorage.getItem('supabase_auto_sync') === 'true';
+    if (!isAutoSync) return;
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const dataset = {
+      tenants,
+      users,
+      risks,
+      actions,
+      auditLogs,
+      fonctions,
+      affectations,
+      rules,
+      accessProfiles,
+      auditMissions,
+      auditFindings,
+      complianceFrameworks,
+      complianceObligations,
+      complianceIncidents,
+      entreprises,
+      licences,
+      historiqueLicences,
+    };
+
+    const delayDebounceFn = setTimeout(() => {
+      console.log('[Supabase Auto-Sync] Changement détecté, sauvegarde dans le cloud...');
+      pushAllToSupabase(client, dataset).then(res => {
+        if (res.success) {
+          console.log('[Supabase Auto-Sync] Sauvegarde réussie.');
+        } else {
+          console.warn('[Supabase Auto-Sync] Échec de la sauvegarde :', res.messages);
+        }
+      });
+    }, 2000);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [
+    tenants,
+    users,
+    risks,
+    actions,
+    auditLogs,
+    fonctions,
+    affectations,
+    rules,
+    accessProfiles,
+    auditMissions,
+    auditFindings,
+    complianceFrameworks,
+    complianceObligations,
+    complianceIncidents,
+    entreprises,
+    licences,
+    historiqueLicences,
+  ]);
 
   // Current selected configurations
   const activeTenantConfig = tenants.find(t => t.id === activeTenantId) || tenants[0];
@@ -560,6 +655,32 @@ export default function App() {
                 onUpdateAccessProfiles={setAccessProfiles}
                 users={users}
                 onAddLog={addAuditLog}
+                
+                tenants={tenants}
+                onUpdateTenants={setTenants}
+                risks={risks}
+                onUpdateRisks={setRisks}
+                actions={actions}
+                onUpdateActions={setActions}
+                auditLogs={auditLogs}
+                onUpdateAuditLogs={setAuditLogs}
+                onUpdateUsers={setUsers}
+                auditMissions={auditMissions}
+                onUpdateAuditMissions={setAuditMissions}
+                auditFindings={auditFindings}
+                onUpdateAuditFindings={setAuditFindings}
+                complianceFrameworks={complianceFrameworks}
+                onUpdateComplianceFrameworks={setComplianceFrameworks}
+                complianceObligations={complianceObligations}
+                onUpdateComplianceObligations={setComplianceObligations}
+                complianceIncidents={complianceIncidents}
+                onUpdateComplianceIncidents={setComplianceIncidents}
+                entreprises={entreprises}
+                onUpdateEntreprises={setEntreprises}
+                licences={licences}
+                onUpdateLicences={setLicences}
+                historiqueLicences={historiqueLicences}
+                onUpdateHistoriqueLicences={setHistoriqueLicences}
               />
             )}
 
