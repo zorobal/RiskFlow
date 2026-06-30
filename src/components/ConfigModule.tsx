@@ -56,6 +56,8 @@ interface ConfigModuleProps {
   users: GrcUser[];
   onAddLog: (action: string, details: string) => void;
   maxSuccursales?: number;
+  depassementQuotaMode?: 'blocage' | 'inactif';
+  succursalesActives?: boolean;
 }
 
 export default function ConfigModule({
@@ -71,7 +73,9 @@ export default function ConfigModule({
   onUpdateAccessProfiles,
   users,
   onAddLog,
-  maxSuccursales = 5
+  maxSuccursales = 5,
+  depassementQuotaMode = 'blocage',
+  succursalesActives = true
 }: ConfigModuleProps) {
   // Config Modules Sub-tab switcher
   const [activeTab, setActiveTab] = useState<'org' | 'functions' | 'rules' | 'scales' | 'formula' | 'categories' | 'workflow' | 'rights'>('org');
@@ -82,6 +86,11 @@ export default function ConfigModule({
   const [newOrgParent, setNewOrgParent] = useState('');
   const [newOrgCode, setNewOrgCode] = useState('');
   const [newOrgSecondary, setNewOrgSecondary] = useState<string>(''); // For matriciel
+  const [newOrgIsSuccursale, setNewOrgIsSuccursale] = useState(false);
+  const [newOrgSousOrgMode, setNewOrgSousOrgMode] = useState<'heritage' | 'propre'>('heritage');
+  const [newOrgVille, setNewOrgVille] = useState('');
+  const [newOrgPays, setNewOrgPays] = useState('');
+  const [newOrgAdresse, setNewOrgAdresse] = useState('');
 
   // Function & Assignment Inputs
   const [newFTitle, setNewFTitle] = useState('');
@@ -120,16 +129,27 @@ export default function ConfigModule({
     e.preventDefault();
     if (!newOrgName.trim()) return;
 
-    // Validation on the number of succursales/filiales (billable)
-    const succursalesTypes = ['Filiale', 'Site'];
-    if (succursalesTypes.includes(newOrgType)) {
+    let determinedStatus: 'Actif' | 'Inactif' = 'Actif';
+
+    if (newOrgIsSuccursale) {
+      if (!succursalesActives) {
+        alert("⚠️ Fonctionnalité Succursales désactivée :\n\nLa création de succursales est actuellement désactivée pour cet abonnement par le SuperAdministrateur.");
+        return;
+      }
+
       const currentSuccursalesCount = tenantConfig.entities.filter(
-        ent => ent.statut !== 'Archivé' && succursalesTypes.includes(ent.type)
+        ent => ent.statut !== 'Archivé' && ent.est_succursale === true
       ).length;
 
       if (currentSuccursalesCount >= maxSuccursales) {
-        alert(`⚠️ Limite commerciale atteinte :\n\nVotre licence actuelle limite le nombre de succursales/filiales à ${maxSuccursales}.\n\nVeuillez contacter le SuperAdmin pour modifier votre offre contractuelle et augmenter ce quota facturable.`);
-        return;
+        if (depassementQuotaMode === 'blocage') {
+          alert(`⚠️ Dépassement de quota bloqué :\n\nVotre licence actuelle limite le nombre de succursales à ${maxSuccursales} (Nombre actuel: ${currentSuccursalesCount}).\n\nLa création d'une nouvelle succursale est interdite. Veuillez contacter le SuperAdministrateur pour modifier votre offre contractuelle.`);
+          return;
+        } else {
+          // creation with Inactif status
+          alert(`⚠️ Quota dépassé (Création restreinte) :\n\nLa limite contractuelle de ${maxSuccursales} succursales est atteinte.\nLa succursale sera créée avec le statut "Inactif" et sera bloquée jusqu'à mise à niveau de votre abonnement.`);
+          determinedStatus = 'Inactif';
+        }
       }
     }
 
@@ -140,8 +160,13 @@ export default function ConfigModule({
       type: newOrgType,
       parentId: newOrgParent || undefined,
       code: codeShort,
-      statut: 'Actif',
-      rattachementsSecondaires: newOrgSecondary ? [newOrgSecondary] : []
+      statut: determinedStatus,
+      rattachementsSecondaires: newOrgSecondary ? [newOrgSecondary] : [],
+      est_succursale: newOrgIsSuccursale,
+      sousOrganigrammeMode: newOrgIsSuccursale ? newOrgSousOrgMode : undefined,
+      ville: newOrgVille.trim() || undefined,
+      pays: newOrgPays.trim() || undefined,
+      adresse: newOrgAdresse.trim() || undefined
     };
 
     onUpdateTenantConfig({
@@ -149,11 +174,16 @@ export default function ConfigModule({
       entities: [...tenantConfig.entities, newNode]
     });
 
-    onAddLog('Config Structure', `Ajout de l'unité organisationnelle "${newOrgName}" [Code: ${codeShort}, Type: ${newOrgType}]`);
+    onAddLog('Config Structure', `Ajout de l'unité organisationnelle "${newOrgName}" [Code: ${codeShort}, Type: ${newOrgType}]${newOrgIsSuccursale ? ' (Marquée comme Succursale)' : ''}`);
     setNewOrgName('');
     setNewOrgCode('');
     setNewOrgParent('');
     setNewOrgSecondary('');
+    setNewOrgIsSuccursale(false);
+    setNewOrgSousOrgMode('heritage');
+    setNewOrgVille('');
+    setNewOrgPays('');
+    setNewOrgAdresse('');
   };
 
   const handleRemoveOrgNode = (id: string) => {
@@ -367,8 +397,10 @@ export default function ConfigModule({
       <div className={`space-y-1.5 ${depth > 0 ? 'pl-4 border-l border-indigo-100 mt-1' : ''}`}>
         {children.map(node => (
           <div key={node.id} className="space-y-1">
-            <div className="flex items-center justify-between p-2.5 bg-slate-50/70 hover:bg-indigo-50/20 border border-slate-200 rounded-lg">
-              <div className="flex items-center gap-2">
+            <div className={`flex flex-col sm:flex-row sm:items-center justify-between p-2.5 hover:bg-indigo-50/20 border rounded-lg gap-2 ${
+              node.statut === 'Inactif' ? 'bg-rose-50/50 border-rose-200' : 'bg-slate-50/70 border-slate-200'
+            }`}>
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-[9px] font-bold bg-indigo-150 text-indigo-750 px-1.5 py-0.5 rounded">
                   {node.code}
                 </span>
@@ -376,6 +408,26 @@ export default function ConfigModule({
                 <span className="text-[8.5px] text-slate-400 capitalize bg-white border px-1 rounded">
                   {node.type}
                 </span>
+                {node.est_succursale && (
+                  <span className="text-[8.5px] bg-indigo-100 text-indigo-800 font-bold px-1.5 py-0.5 rounded border border-indigo-200">
+                    🏢 Succursale
+                  </span>
+                )}
+                {node.est_succursale && node.sousOrganigrammeMode && (
+                  <span className="text-[8px] bg-slate-100 text-slate-600 font-semibold px-1 py-0.2 rounded border">
+                    {node.sousOrganigrammeMode === 'heritage' ? '🔗 Héritage' : '💼 Propre'}
+                  </span>
+                )}
+                {node.est_succursale && (node.ville || node.pays) && (
+                  <span className="text-[8.5px] text-slate-500 font-semibold bg-white border px-1 rounded">
+                    📍 {node.ville}{node.pays ? `, ${node.pays}` : ''}
+                  </span>
+                )}
+                {node.statut === 'Inactif' && (
+                  <span className="text-[8.5px] bg-rose-100 text-rose-700 font-bold px-1.5 py-0.5 rounded border border-rose-300 animate-pulse">
+                    ⚠️ Bloqué (Quota dépassé)
+                  </span>
+                )}
                 {node.rattachementsSecondaires && node.rattachementsSecondaires.length > 0 && (
                   <span className="text-[8px] bg-amber-50 text-amber-700 font-semibold px-1 py-0.2 rounded border border-amber-200">
                     🔗 Matriciel: {tenantConfig.entities.find(e => e.id === node.rattachementsSecondaires?.[0])?.code || 'Secondaire'}
@@ -385,7 +437,7 @@ export default function ConfigModule({
 
               <button
                 onClick={() => handleRemoveOrgNode(node.id)}
-                className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-red-50 cursor-pointer"
+                className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-red-50 cursor-pointer self-end sm:self-auto"
                 title="Supprimer / Archiver"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -509,101 +561,184 @@ export default function ConfigModule({
               <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
                 <div>
                   <h3 className="font-bold text-sm text-slate-800">Organigramme Hiérarchique & Matriciel (Section 2.1)</h3>
-                  <p className="text-slate-400 text-[10.5px]">Configurez la structure arborescente de votre organisation avec gestion des rattachements fonctionnels multiples.</p>
+                  <p className="text-slate-400 text-[10.5px]">Configurez la structure arborescente de votre organisation avec gestion des rattachements fonctionnels multiples et succursales optionnelles.</p>
                 </div>
                 {(() => {
                   const currentSuccursalesCount = tenantConfig.entities.filter(
-                    e => e.statut !== 'Archivé' && (e.type === 'Filiale' || e.type === 'Site')
+                    e => e.statut !== 'Archivé' && e.est_succursale === true
                   ).length;
                   const isNearLimit = currentSuccursalesCount >= maxSuccursales;
                   return (
-                    <div className={`border rounded px-3 py-1.5 text-right ${
-                      isNearLimit ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50/70 border-amber-150 text-amber-900'
-                    }`}>
-                      <span className="text-[9px] text-slate-500 block font-bold uppercase tracking-wider">Quota Succursales & Sites</span>
-                      <span className="font-mono text-xs font-bold">
-                        {currentSuccursalesCount} / {maxSuccursales} autorisés
-                      </span>
+                    <div className="flex items-center space-x-2">
+                      {!succursalesActives && (
+                        <div className="bg-slate-100 border border-slate-200 text-slate-500 rounded px-2.5 py-1 text-right text-[9px] font-bold uppercase">
+                          Succursales désactivées
+                        </div>
+                      )}
+                      <div className={`border rounded px-3 py-1 text-right ${
+                        isNearLimit ? 'bg-red-50 border-red-200 text-red-800' : 'bg-indigo-50 border-indigo-150 text-indigo-950'
+                      }`}>
+                        <span className="text-[9px] text-slate-500 block font-bold uppercase tracking-wider">Quota Succursales</span>
+                        <span className="font-mono text-xs font-bold">
+                          {currentSuccursalesCount} / {maxSuccursales} contractuelles
+                        </span>
+                      </div>
                     </div>
                   );
                 })()}
               </div>
 
               {/* Add form */}
-              <form onSubmit={handleAddOrgNode} className="p-4 bg-slate-50 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                <div className="space-y-1 sm:col-span-3">
-                  <label className="text-[9px] text-slate-400 font-bold uppercase">Libellé Unité</label>
-                  <input 
-                    type="text"
-                    required
-                    placeholder="Ex. Direction Financière..."
-                    value={newOrgName}
-                    onChange={(e) => setNewOrgName(e.target.value)}
-                    className="w-full bg-white border border-slate-250 rounded p-1.5 text-xs font-semibold text-slate-800"
-                  />
+              <form onSubmit={handleAddOrgNode} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-10 gap-3 items-end">
+                  <div className="space-y-1 sm:col-span-3">
+                    <label className="text-[9px] text-slate-400 font-bold uppercase block">Libellé Unité</label>
+                    <input 
+                      type="text"
+                      required
+                      placeholder="Ex. Direction Financière..."
+                      value={newOrgName}
+                      onChange={(e) => setNewOrgName(e.target.value)}
+                      className="w-full bg-white border border-slate-250 rounded p-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-[9px] text-slate-400 font-bold uppercase block">Code Court</label>
+                    <input 
+                      type="text"
+                      required
+                      placeholder="Ex. DAF-GRP..."
+                      value={newOrgCode}
+                      onChange={(e) => setNewOrgCode(e.target.value)}
+                      className="w-full bg-white border border-slate-250 rounded p-1.5 text-xs font-mono font-bold text-indigo-700 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-1.5 col-span-2">
+                    <label className="text-[9px] text-slate-400 font-bold uppercase block">Type Unité</label>
+                    <select
+                      value={newOrgType}
+                      onChange={(e) => setNewOrgType(e.target.value as any)}
+                      className="w-full bg-white border border-slate-250 rounded p-1.5 text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="Direction">👨‍💼 Direction</option>
+                      <option value="Département">📁 Département</option>
+                      <option value="Service">🔧 Service</option>
+                      <option value="Site">📍 Site Local</option>
+                      <option value="Filiale">🏢 Filiale</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-1.5 col-span-2">
+                    <label className="text-[9px] text-slate-400 font-bold uppercase block">Unité Parente</label>
+                    <select
+                      value={newOrgParent}
+                      onChange={(e) => setNewOrgParent(e.target.value)}
+                      className="w-full bg-white border border-slate-255 rounded p-1.5 text-xs text-slate-600 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="">-- Racine (Groupe) --</option>
+                      {tenantConfig.entities.filter(e => e.statut !== 'Archivé').map(e => (
+                        <option key={e.id} value={e.id}>{e.name} ({e.code})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-[9px] text-slate-400 font-bold uppercase block">Rattachement Matriciel</label>
+                    <select
+                      value={newOrgSecondary}
+                      onChange={(e) => setNewOrgSecondary(e.target.value)}
+                      className="w-full bg-white border border-slate-255 rounded p-1.5 text-xs text-slate-600 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="">Aucun (Hiérarchique simple)</option>
+                      {tenantConfig.entities.filter(e => e.statut !== 'Archivé').map(e => (
+                        <option key={e.id} value={e.id}>{e.name} ({e.code})</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="text-[9px] text-slate-400 font-bold uppercase">Code Court</label>
-                  <input 
-                    type="text"
-                    required
-                    placeholder="Ex. DAF-GRP..."
-                    value={newOrgCode}
-                    onChange={(e) => setNewOrgCode(e.target.value)}
-                    className="w-full bg-white border border-slate-250 rounded p-1.5 text-xs font-mono font-bold text-indigo-700"
-                  />
+                {/* Succursale section */}
+                <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        checked={newOrgIsSuccursale}
+                        disabled={!succursalesActives}
+                        onChange={(e) => setNewOrgIsSuccursale(e.target.checked)}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer disabled:opacity-50"
+                      />
+                      <span className={`text-xs font-bold ${succursalesActives ? 'text-slate-800' : 'text-slate-400'}`}>
+                        Marquer comme une Succursale contractuelle (Géré par quota de licence)
+                      </span>
+                    </label>
+                    {!succursalesActives && (
+                      <span className="text-[9px] text-amber-700 font-bold uppercase bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                        Fonctionnalité non souscrite
+                      </span>
+                    )}
+                  </div>
+
+                  {newOrgIsSuccursale && succursalesActives && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100 text-xs animate-fade-in">
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 font-bold uppercase block">Mode d'organisation / Organigramme</label>
+                        <select
+                          value={newOrgSousOrgMode}
+                          onChange={(e) => setNewOrgSousOrgMode(e.target.value as any)}
+                          className="w-full bg-white border border-slate-250 rounded p-1.5 text-slate-700 focus:outline-none"
+                        >
+                          <option value="heritage">🔗 Hériter de l'organigramme de l'entreprise mère</option>
+                          <option value="propre">💼 Posséder son propre sous-organigramme complet</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 font-bold uppercase block">Ville</label>
+                        <input 
+                          type="text"
+                          placeholder="Ex: Douala, Paris, Garoua..."
+                          value={newOrgVille}
+                          onChange={(e) => setNewOrgVille(e.target.value)}
+                          className="w-full bg-white border border-slate-250 rounded p-1.5 text-slate-800 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 font-bold uppercase block">Pays / Zone géographique</label>
+                        <input 
+                          type="text"
+                          placeholder="Ex: Cameroun, France, International..."
+                          value={newOrgPays}
+                          onChange={(e) => setNewOrgPays(e.target.value)}
+                          className="w-full bg-white border border-slate-250 rounded p-1.5 text-slate-800 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1 sm:col-span-3">
+                        <label className="text-[9px] text-slate-400 font-bold uppercase block">Adresse / Localisation complète</label>
+                        <input 
+                          type="text"
+                          placeholder="Ex: Boulevard de la Liberté, Akwa..."
+                          value={newOrgAdresse}
+                          onChange={(e) => setNewOrgAdresse(e.target.value)}
+                          className="w-full bg-white border border-slate-250 rounded p-1.5 text-slate-800 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="text-[9px] text-slate-400 font-bold uppercase">Type Unité</label>
-                  <select
-                    value={newOrgType}
-                    onChange={(e) => setNewOrgType(e.target.value as any)}
-                    className="w-full bg-white border border-slate-250 rounded p-1.5 text-slate-700"
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 px-6 rounded text-xs shadow transition cursor-pointer"
                   >
-                    <option value="Direction">👨‍💼 Direction</option>
-                    <option value="Département">📁 Département</option>
-                    <option value="Service">🔧 Service</option>
-                    <option value="Site">📍 Site Local</option>
-                    <option value="Filiale">🏢 Filiale</option>
-                  </select>
+                    Ajouter l'Unité à la Structure
+                  </button>
                 </div>
-
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="text-[9px] text-slate-400 font-bold uppercase">Unité Parente</label>
-                  <select
-                    value={newOrgParent}
-                    onChange={(e) => setNewOrgParent(e.target.value)}
-                    className="w-full bg-white border border-slate-255 rounded p-1.5 text-slate-600"
-                  >
-                    <option value="">-- Racine (Groupe) --</option>
-                    {tenantConfig.entities.filter(e => e.statut !== 'Archivé').map(e => (
-                      <option key={e.id} value={e.id}>{e.name} ({e.code})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="text-[9px] text-slate-400 font-bold uppercase">Rattachement Matriciel</label>
-                  <select
-                    value={newOrgSecondary}
-                    onChange={(e) => setNewOrgSecondary(e.target.value)}
-                    className="w-full bg-white border border-slate-255 rounded p-1.5 text-slate-600"
-                  >
-                    <option value="">Aucun (Hiérarchique simple)</option>
-                    {tenantConfig.entities.filter(e => e.statut !== 'Archivé').map(e => (
-                      <option key={e.id} value={e.id}>{e.name} ({e.code})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <button
-                  type="submit"
-                  className="py-1.8 sm:col-span-1 bg-indigo-600 text-white font-bold rounded shadow hover:bg-indigo-700 cursor-pointer text-center text-xs"
-                >
-                  +
-                </button>
               </form>
 
               {/* Visual Hierarchy */}

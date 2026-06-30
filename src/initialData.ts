@@ -589,7 +589,9 @@ export const PRESET_ENTREPRISES: EntrepriseCliente[] = [
     statutCompte: 'Actif',
     regionHebergement: 'Afrique Centrale (Yaoundé / Douala)',
     idContactPrincipal: 'Alain-Patrick Nkoumou',
-    maxSuccursales: 8
+    maxSuccursales: 8,
+    succursalesActives: true,
+    depassementQuotaMode: 'blocage'
   },
   {
     id: 'tenant2',
@@ -599,7 +601,9 @@ export const PRESET_ENTREPRISES: EntrepriseCliente[] = [
     statutCompte: 'Actif',
     regionHebergement: 'Afrique Centrale (Yaoundé)',
     idContactPrincipal: 'Marie-Thérèse Atangana',
-    maxSuccursales: 5
+    maxSuccursales: 5,
+    succursalesActives: true,
+    depassementQuotaMode: 'inactif'
   },
   {
     id: 'tenant3',
@@ -609,7 +613,9 @@ export const PRESET_ENTREPRISES: EntrepriseCliente[] = [
     statutCompte: 'Essai',
     regionHebergement: 'Afrique Centrale (Douala)',
     idContactPrincipal: 'Jean-Pierre Ndzana',
-    maxSuccursales: 3
+    maxSuccursales: 3,
+    succursalesActives: false,
+    depassementQuotaMode: 'blocage'
   },
   {
     id: 'tenant4',
@@ -619,7 +625,9 @@ export const PRESET_ENTREPRISES: EntrepriseCliente[] = [
     statutCompte: 'Suspendu',
     regionHebergement: 'Afrique de l\'Ouest (Abidjan)',
     idContactPrincipal: 'Dieudonné Mbarga',
-    maxSuccursales: 10
+    maxSuccursales: 10,
+    succursalesActives: true,
+    depassementQuotaMode: 'blocage'
   }
 ];
 
@@ -633,7 +641,11 @@ export const PRESET_LICENCES: Licence[] = [
     modulesActives: ['Cartographie', 'Plans d\'action', 'Audit', 'Conformité', 'Reporting'],
     dateDebut: '2026-01-10',
     dateFin: '2027-01-09',
-    statutLicence: 'Active'
+    statutLicence: 'Active',
+    nombre_succursales_max: 8,
+    nombre_succursales_actuel: 0,
+    depassementQuotaMode: 'blocage',
+    succursalesActives: true
   },
   {
     id: 'lic2',
@@ -644,7 +656,11 @@ export const PRESET_LICENCES: Licence[] = [
     modulesActives: ['Cartographie', 'Plans d\'action', 'Reporting'],
     dateDebut: '2026-06-15',
     dateFin: '2026-07-14',
-    statutLicence: 'Active'
+    statutLicence: 'Active',
+    nombre_succursales_max: 5,
+    nombre_succursales_actuel: 0,
+    depassementQuotaMode: 'inactif',
+    succursalesActives: true
   },
   {
     id: 'lic3',
@@ -655,7 +671,11 @@ export const PRESET_LICENCES: Licence[] = [
     modulesActives: ['Cartographie', 'Plans d\'action', 'Audit'],
     dateDebut: '2026-06-01',
     dateFin: '2026-07-01',
-    statutLicence: 'En période d\'essai'
+    statutLicence: 'En période d\'essai',
+    nombre_succursales_max: 3,
+    nombre_succursales_actuel: 0,
+    depassementQuotaMode: 'blocage',
+    succursalesActives: false
   },
   {
     id: 'lic4',
@@ -666,7 +686,11 @@ export const PRESET_LICENCES: Licence[] = [
     modulesActives: ['Cartographie', 'Plans d\'action', 'Audit', 'Conformité', 'Reporting'],
     dateDebut: '2025-11-20',
     dateFin: '2026-11-19',
-    statutLicence: 'Suspendue'
+    statutLicence: 'Suspendue',
+    nombre_succursales_max: 10,
+    nombre_succursales_actuel: 0,
+    depassementQuotaMode: 'blocage',
+    succursalesActives: true
   }
 ];
 

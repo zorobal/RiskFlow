@@ -181,16 +181,16 @@ export default function OdooNavbar({
         {/* Right Side: Tenant Picker, Notifications, User */}
         <div className="flex items-center space-x-4">
           {/* Toggle button for SuperAdmin Platform mode (Only visible when already in SuperAdminMode to switch back) */}
-          {isSuperAdminMode && (
+          {isSuperAdminMode && false && (
             <button
               onClick={() => {
                 onToggleSuperAdminMode(false);
                 onAddLog('Espace Switch', 'Retour à l\'espace GRC client');
               }}
-              className="flex items-center space-x-1 px-2.5 py-1.5 rounded text-xs font-bold transition-all duration-150 border cursor-pointer bg-amber-500 text-slate-950 border-amber-600 hover:bg-amber-400"
+              className="flex items-center space-x-1.5 px-2.5 py-1 rounded text-[11px] font-bold transition-all duration-150 border cursor-pointer bg-amber-500 text-slate-950 border-amber-600 hover:bg-amber-400"
               title="Retourner à la GRC Client"
             >
-              <span>🏢 GRC Client</span>
+              <span>🏢 Retour Client</span>
             </button>
           )}
 
@@ -206,44 +206,44 @@ export default function OdooNavbar({
               <ChevronDown className="w-3 h-3" />
             </button>
 
-            {showTenantMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowTenantMenu(false)}></div>
-                <div className="absolute right-0 mt-1.5 w-64 bg-white text-slate-800 rounded shadow-xl border border-slate-200 py-1.5 z-20 animate-fade-in text-xs">
-                  <div className="px-3 py-1.5 font-semibold text-slate-400 border-b border-slate-100 uppercase tracking-wider text-[10px]">
-                    Sélectionner l'Entreprise
+              {showTenantMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowTenantMenu(false)}></div>
+                  <div className="absolute right-0 mt-1.5 w-64 bg-white text-slate-800 rounded shadow-xl border border-slate-200 py-1.5 z-20 animate-fade-in text-xs">
+                    <div className="px-3 py-1.5 font-semibold text-slate-400 border-b border-slate-100 uppercase tracking-wider text-[10px]">
+                      Sélectionner l'Entreprise
+                    </div>
+                    {tenants.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => handleTenantChange(t.id)}
+                        className={`w-full flex items-center justify-between px-4 py-2 hover:bg-slate-50 text-left ${
+                          t.id === activeTenantId ? 'bg-indigo-50 text-indigo-600 font-semibold' : ''
+                        }`}
+                      >
+                        <span>{t.companyName}</span>
+                        {t.id === activeTenantId && <span className="w-1.5 h-1.5 bg-indigo-600 rounded-full"></span>}
+                      </button>
+                    ))}
+                    <div className="border-t border-slate-100 mt-1 px-2 pt-1">
+                      <button 
+                        onClick={() => { 
+                          setShowTenantMenu(false); 
+                          if (onConfigureCompany) {
+                            onConfigureCompany();
+                          } else {
+                            setActiveModule('admin'); 
+                          }
+                        }}
+                        className="w-full text-center py-1 text-indigo-600 hover:underline font-semibold text-[11px]"
+                      >
+                        + Configurer ou ajouter entreprise
+                      </button>
+                    </div>
                   </div>
-                  {tenants.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => handleTenantChange(t.id)}
-                      className={`w-full flex items-center justify-between px-4 py-2 hover:bg-slate-50 text-left ${
-                        t.id === activeTenantId ? 'bg-indigo-50 text-indigo-600 font-semibold' : ''
-                      }`}
-                    >
-                      <span>{t.companyName}</span>
-                      {t.id === activeTenantId && <span className="w-1.5 h-1.5 bg-indigo-600 rounded-full"></span>}
-                    </button>
-                  ))}
-                  <div className="border-t border-slate-100 mt-1 px-2 pt-1">
-                    <button 
-                      onClick={() => { 
-                        setShowTenantMenu(false); 
-                        if (onConfigureCompany) {
-                          onConfigureCompany();
-                        } else {
-                          setActiveModule('admin'); 
-                        }
-                      }}
-                      className="w-full text-center py-1 text-indigo-600 hover:underline font-semibold text-[11px]"
-                    >
-                      + Configurer ou ajouter entreprise
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+                </>
+              )}
+            </div>
 
           {/* Quick Alert Bell */}
           <div className="relative">
@@ -289,71 +289,71 @@ export default function OdooNavbar({
               />
               <div className="hidden md:block text-left">
                 <p className="text-[11px] font-semibold leading-none">{currentUser.name}</p>
-                <p className="text-[9px] text-slate-400">{currentUser.role}</p>
-              </div>
-              <ChevronDown className="w-3 h-3 text-slate-300" />
-            </button>
+                  <p className="text-[9px] text-slate-400">{currentUser.role}</p>
+                </div>
+                <ChevronDown className="w-3 h-3 text-slate-300" />
+              </button>
 
-            {showUserMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)}></div>
-                <div className="absolute right-0 mt-1.5 w-56 bg-white text-slate-800 rounded shadow-xl border border-slate-200 py-1 z-20 animate-fade-in text-xs">
-                  <div className="px-3 py-2 border-b border-slate-100 bg-slate-50">
-                    <p className="font-semibold text-slate-800 text-[12px]">{currentUser.name}</p>
-                    <p className="text-slate-500 font-mono text-[10px]">{currentUser.email}</p>
-                    <p className="mt-1 inline-block bg-indigo-55 text-indigo-700 px-1.5 py-0.5 rounded text-[9px] font-bold border border-indigo-100">
-                      {currentUser.role}
-                    </p>
-                  </div>
-                  <div className="border-b border-slate-100 pb-1 mb-1">
-                    <button
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        setShowPasswordModal(true);
-                        setPasswordSuccess('');
-                        setPasswordError('');
-                      }}
-                      className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-slate-50 text-left font-semibold text-slate-700 text-xs"
-                    >
-                      <span>🔑 Modifier mon mot de passe</span>
-                    </button>
-                  </div>
-                  <div className="px-2 py-1 font-semibold text-slate-400 text-[9px] uppercase tracking-wider">
-                    Changer d'utilisateur (RBAC)
-                  </div>
-                  {users.map((u) => (
-                    <button
-                      key={u.id}
-                      onClick={() => handleUserChange(u)}
-                      className={`w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-slate-50 text-left ${
-                        u.id === currentUser.id ? 'bg-indigo-55 text-indigo-700 font-semibold' : ''
-                      }`}
-                    >
-                      <img src={u.avatar} alt="" className="w-4 h-4 rounded-full" />
-                      <div className="flex-1">
-                        <p className="font-medium text-[11px] leading-tight">{u.name}</p>
-                        <p className="text-[9px] text-slate-400">{u.role}</p>
-                      </div>
-                    </button>
-                  ))}
-                  {onLogout && (
-                    <div className="border-t border-slate-100 mt-1.5 pt-1.5">
+              {showUserMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)}></div>
+                  <div className="absolute right-0 mt-1.5 w-56 bg-white text-slate-800 rounded shadow-xl border border-slate-200 py-1 z-20 animate-fade-in text-xs">
+                    <div className="px-3 py-2 border-b border-slate-100 bg-slate-50">
+                      <p className="font-semibold text-slate-800 text-[12px]">{currentUser.name}</p>
+                      <p className="text-slate-500 font-mono text-[10px]">{currentUser.email}</p>
+                      <p className="mt-1 inline-block bg-indigo-55 text-indigo-700 px-1.5 py-0.5 rounded text-[9px] font-bold border border-indigo-100">
+                        {currentUser.role}
+                      </p>
+                    </div>
+                    <div className="border-b border-slate-100 pb-1 mb-1">
                       <button
                         onClick={() => {
                           setShowUserMenu(false);
-                          onLogout();
+                          setShowPasswordModal(true);
+                          setPasswordSuccess('');
+                          setPasswordError('');
                         }}
-                        className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-50 text-left font-bold text-red-600 transition-colors"
+                        className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-slate-50 text-left font-semibold text-slate-700 text-xs"
                       >
-                        <LogOut className="w-3.5 h-3.5" />
-                        <span>Se déconnecter</span>
+                        <span>🔑 Modifier mon mot de passe</span>
                       </button>
                     </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+                    <div className="px-2 py-1 font-semibold text-slate-400 text-[9px] uppercase tracking-wider">
+                      Changer d'utilisateur (RBAC)
+                    </div>
+                    {users.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => handleUserChange(u)}
+                        className={`w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-slate-50 text-left ${
+                          u.id === currentUser.id ? 'bg-indigo-55 text-indigo-700 font-semibold' : ''
+                        }`}
+                      >
+                        <img src={u.avatar} alt="" className="w-4 h-4 rounded-full" />
+                        <div className="flex-1">
+                          <p className="font-medium text-[11px] leading-tight">{u.name}</p>
+                          <p className="text-[9px] text-slate-400">{u.role}</p>
+                        </div>
+                      </button>
+                    ))}
+                    {onLogout && (
+                      <div className="border-t border-slate-100 mt-1.5 pt-1.5">
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            onLogout();
+                          }}
+                          className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-50 text-left font-bold text-red-600 transition-colors"
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          <span>Se déconnecter</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
         </div>
       </div>
 
@@ -385,12 +385,6 @@ export default function OdooNavbar({
             <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
             <span>Console d'administration de la Plateforme (Multi-Tenant)</span>
           </div>
-          <button 
-            onClick={() => onToggleSuperAdminMode(false)}
-            className="text-slate-400 hover:text-white normal-case font-semibold text-[10px] hover:underline"
-          >
-            Retourner au portail client &rarr;
-          </button>
         </div>
       )}
     </header>

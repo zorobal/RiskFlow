@@ -24,6 +24,11 @@ export interface OrgEntity {
   statut?: 'Actif' | 'Inactif' | 'Fusionné' | 'Archivé';
   id_unite_fusion_cible?: string;
   rattachementsSecondaires?: string[]; // Multiple reporting/matriciel lines (Section 2.1.3)
+  est_succursale?: boolean; // Marqueur contractuel pour la licence (Section 2.1.1)
+  sousOrganigrammeMode?: 'heritage' | 'propre'; // Choix d'organisation de la succursale
+  ville?: string;
+  pays?: string;
+  adresse?: string;
 }
 
 export interface Fonction { // Section 2.1.4
@@ -254,6 +259,8 @@ export interface EntrepriseCliente {
   regionHebergement: string;
   idContactPrincipal: string; // Linked to a user ID or contact name
   maxSuccursales?: number; // Authorized subsidiaries/succursales the client can add
+  succursalesActives?: boolean; // Section 10.2.2 Option active/inactive
+  depassementQuotaMode?: 'blocage' | 'inactif'; // Section 10.2.2 Gestion dépassement
 }
 
 export interface Licence {
@@ -266,6 +273,10 @@ export interface Licence {
   dateDebut: string;
   dateFin: string;
   statutLicence: 'Active' | 'En période d\'essai' | 'Expirée' | 'Suspendue';
+  nombre_succursales_max?: number; // Plafond contractuel (Section 10.2.2)
+  nombre_succursales_actuel?: number; // Compteur calculé en temps réel (Section 10.2.2)
+  depassementQuotaMode?: 'blocage' | 'inactif'; // Mode de dépassement de quota (Section 10.2.2)
+  succursalesActives?: boolean; // Fonctionnalité succursales activée (Section 10.2.2)
 }
 
 export interface HistoriqueLicence {

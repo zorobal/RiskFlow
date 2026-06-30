@@ -297,6 +297,42 @@ export default function App() {
     }
   }, []);
 
+  // Synchronisation en temps réel des compteurs de licences (utilisateurs et succursales)
+  useEffect(() => {
+    setLicences(prevLicences => {
+      let changed = false;
+      const updated = prevLicences.map(lic => {
+        const usersCount = users.filter(u => u.tenantId === lic.entrepriseId).length;
+        const tenant = tenants.find(t => t.id === lic.entrepriseId);
+        const succursalesCount = tenant 
+          ? tenant.entities.filter(e => e.est_succursale === true && e.statut !== 'Archivé').length
+          : 0;
+
+        const currentMax = lic.nombre_succursales_max ?? 5;
+        const currentActuel = lic.nombre_succursales_actuel ?? 0;
+        const currentQuotaMode = lic.depassementQuotaMode ?? 'blocage';
+        const currentActive = lic.succursalesActives ?? true;
+
+        if (
+          lic.nombreUtilisateursActuel !== usersCount || 
+          currentActuel !== succursalesCount
+        ) {
+          changed = true;
+          return {
+            ...lic,
+            nombreUtilisateursActuel: usersCount,
+            nombre_succursales_actuel: succursalesCount,
+            nombre_succursales_max: lic.nombre_succursales_max ?? 5,
+            depassementQuotaMode: lic.depassementQuotaMode ?? 'blocage',
+            succursalesActives: lic.succursalesActives ?? true
+          };
+        }
+        return lic;
+      });
+      return changed ? updated : prevLicences;
+    });
+  }, [users, tenants]);
+
   // Supabase Auto-sync Push on changes (throttled by 2-second debounce)
   useEffect(() => {
     const isAutoSync = localStorage.getItem('supabase_auto_sync') === 'true';
@@ -360,6 +396,7 @@ export default function App() {
   // Current selected configurations
   const activeTenantConfig = tenants.find(t => t.id === activeTenantId) || tenants[0];
   const activeEntreprise = entreprises.find(e => e.id === activeTenantId) || entreprises.find(e => e.id === activeTenantConfig.id);
+  const activeLicence = licences.find(l => l.entrepriseId === activeTenantId) || licences.find(l => l.entrepriseId === activeTenantConfig.id);
   
   // Scoped risk list belonging to active Tenant
   const activeTenantRisks = risks.filter(r => {
@@ -678,7 +715,9 @@ export default function App() {
                 onUpdateAccessProfiles={setAccessProfiles}
                 users={users}
                 onAddLog={addAuditLog}
-                maxSuccursales={activeEntreprise?.maxSuccursales || 5}
+                maxSuccursales={activeLicence?.nombre_succursales_max ?? activeEntreprise?.maxSuccursales ?? 5}
+                depassementQuotaMode={activeLicence?.depassementQuotaMode ?? activeEntreprise?.depassementQuotaMode ?? 'blocage'}
+                succursalesActives={activeLicence?.succursalesActives ?? activeEntreprise?.succursalesActives ?? true}
               />
             )}
 

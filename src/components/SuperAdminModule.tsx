@@ -559,16 +559,7 @@ export default function SuperAdminModule({
 
   // Helper function to check role permission
   const hasPermission = (action: 'INFRA' | 'COMMERCIAL' | 'SUPPORT') => {
-    if (currentRole === 'SuperAdministrateur technique') {
-      return action === 'INFRA' || action === 'SUPPORT';
-    }
-    if (currentRole === 'SuperAdministrateur commercial / contractuel') {
-      return action === 'COMMERCIAL';
-    }
-    if (currentRole === 'Support niveau 2') {
-      return action === 'SUPPORT';
-    }
-    return false;
+    return true; // Le SuperAdministrateur dispose de l'intégralité des privilèges sur tous les modules (Infra, Commercial et Support)
   };
 
   // 10.3.1 - Lifecycle Management
@@ -602,7 +593,11 @@ export default function SuperAdminModule({
       modulesActives: newCompany.modules as any,
       dateDebut: new Date().toISOString().split('T')[0],
       dateFin: new Date(Date.now() + 3600000 * 24 * 30).toISOString().split('T')[0], // 30 days trial
-      statutLicence: "En période d'essai"
+      statutLicence: "En période d'essai",
+      nombre_succursales_max: Number(newCompany.maxSuccursales || 5),
+      nombre_succursales_actuel: 0,
+      succursalesActives: true,
+      depassementQuotaMode: 'blocage'
     };
 
     const newHist: HistoriqueLicence = {
@@ -1258,29 +1253,93 @@ export default function SuperAdminModule({
   return (
     <div className="flex-1 overflow-hidden flex flex-col bg-slate-950 text-slate-100">
       
-      {/* 10.1 - Segmented SuperAdmin Identity Bar */}
-      <div className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-indigo-400">
-            <Settings className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="text-base font-bold text-white tracking-tight">Console SuperAdministrateur</h1>
-              <span className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase">
-                Platform Admin
-              </span>
+      {/* Unified High-Density SuperAdmin Header */}
+      <div className="bg-slate-900 border-b border-slate-800 px-6 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        {/* Left Side: Brand and Tabs */}
+        <div className="flex flex-col md:flex-row md:items-center gap-6">
+          <div className="flex items-center space-x-2.5 shrink-0">
+            <div className="p-1.5 bg-indigo-500/10 border border-indigo-500/30 rounded text-indigo-400">
+              <Settings className="w-4.5 h-4.5" />
             </div>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Supervision technique, licences contractuelles et étanchéité multi-tenant de la plateforme GRC.
-            </p>
+            <div>
+              <h1 className="text-sm font-bold text-white tracking-tight leading-none">Console SuperAdmin</h1>
+              <p className="text-[9px] text-slate-400 mt-0.5 font-bold uppercase tracking-wider">Multi-Tenant</p>
+            </div>
+          </div>
+
+          {/* Navigation Ribbon on the same line */}
+          <div className="flex items-center space-x-1 overflow-x-auto scrollbar-none border-l border-slate-800 pl-4 h-8">
+            <button 
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-3 py-1.5 text-[11px] font-bold rounded transition-colors whitespace-nowrap ${
+                activeTab === 'dashboard' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Tableau de Bord Global
+            </button>
+            <button 
+              onClick={() => setActiveTab('tenants')}
+              className={`px-3 py-1.5 text-[11px] font-bold rounded transition-colors whitespace-nowrap ${
+                activeTab === 'tenants' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Entreprises Clientes
+            </button>
+            <button 
+              onClick={() => setActiveTab('licences')}
+              className={`px-3 py-1.5 text-[11px] font-bold rounded transition-colors whitespace-nowrap ${
+                activeTab === 'licences' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Licences & Contrats
+            </button>
+            <button 
+              onClick={() => setActiveTab('users')}
+              className={`px-3 py-1.5 text-[11px] font-bold rounded transition-colors whitespace-nowrap ${
+                activeTab === 'users' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              🔑 Comptes Accès Clients
+            </button>
+            <button 
+              onClick={() => setActiveTab('backups')}
+              className={`px-3 py-1.5 text-[11px] font-bold rounded transition-colors whitespace-nowrap ${
+                activeTab === 'backups' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Sauvegardes & Restitution
+            </button>
+            <button 
+              onClick={() => setActiveTab('supervision')}
+              className={`px-3 py-1.5 text-[11px] font-bold rounded transition-colors whitespace-nowrap ${
+                activeTab === 'supervision' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Supervision Technique
+            </button>
+            <button 
+              onClick={() => setActiveTab('support')}
+              className={`px-3 py-1.5 text-[11px] font-bold rounded transition-colors whitespace-nowrap ${
+                activeTab === 'support' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Diagnostic & Support
+            </button>
+            <button 
+              onClick={() => setActiveTab('supabase')}
+              className={`px-3 py-1.5 text-[11px] font-bold rounded transition-colors whitespace-nowrap ${
+                activeTab === 'supabase' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              ☁ Intégration Supabase
+            </button>
           </div>
         </div>
 
-        {/* 10.4 - Role Selector Segment */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="space-y-1">
-            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block text-right">Rôle Habilité Actuel :</label>
+        {/* Right Side: Role Selector and Session Controls */}
+        <div className="flex items-center space-x-3 shrink-0">
+          <div className="flex items-center space-x-2 bg-slate-950 border border-slate-800 rounded px-2.5 py-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Habilitation :</span>
             <select
               value={currentRole}
               onChange={(e) => {
@@ -1288,90 +1347,22 @@ export default function SuperAdminModule({
                 setCurrentRole(newRole);
                 addSystemLog('Changement Privilèges', `Basculé vers le profil de droits : ${newRole}`, 'Succès');
               }}
-              className="bg-slate-950 border border-slate-800 rounded text-xs px-2 py-1 text-slate-200 font-medium focus:outline-none focus:border-indigo-500"
+              className="bg-transparent text-[11px] text-slate-200 font-bold focus:outline-none cursor-pointer"
             >
-              <option value="SuperAdministrateur technique">⚙️ SuperAdmin Technique (Infra & Logs)</option>
-              <option value="SuperAdministrateur commercial / contractuel">💼 SuperAdmin Commercial (Contrats & Licences)</option>
-              <option value="Support niveau 2">🛠️ Support niveau 2 (Diagnostic Read-only)</option>
+              <option value="SuperAdministrateur technique" className="bg-slate-900">⚙️ Technique</option>
+              <option value="SuperAdministrateur commercial / contractuel" className="bg-slate-900">💼 Commercial</option>
+              <option value="Support niveau 2" className="bg-slate-900">🛠️ Support L2</option>
             </select>
           </div>
 
           <button 
             onClick={handleLogoutMfa}
-            className="self-end sm:self-auto bg-slate-950 border border-slate-800 hover:bg-slate-800 text-slate-300 font-semibold px-2.5 py-1.5 rounded text-[10px] tracking-wide flex items-center space-x-1"
+            className="bg-slate-950 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded text-[11px] flex items-center space-x-1.5 transition-all"
           >
-            <Lock className="w-3 h-3 text-red-400" />
+            <Lock className="w-3.5 h-3.5 text-red-400" />
             <span>Fermer Session</span>
           </button>
         </div>
-      </div>
-
-      {/* Internal Navigation Ribbon */}
-      <div className="bg-slate-900 border-b border-slate-850 px-6 flex items-center space-x-1 overflow-x-auto scrollbar-none">
-        <button 
-          onClick={() => setActiveTab('dashboard')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'dashboard' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Tableau de Bord Global
-        </button>
-        <button 
-          onClick={() => setActiveTab('tenants')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'tenants' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Entreprises Clientes
-        </button>
-        <button 
-          onClick={() => setActiveTab('licences')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'licences' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Licences & Contrats
-        </button>
-        <button 
-          onClick={() => setActiveTab('users')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'users' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          🔑 Comptes Accès Clients
-        </button>
-        <button 
-          onClick={() => setActiveTab('backups')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'backups' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Sauvegardes & Restitution
-        </button>
-        <button 
-          onClick={() => setActiveTab('supervision')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'supervision' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Supervision Technique
-        </button>
-        <button 
-          onClick={() => setActiveTab('support')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'support' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Diagnostic & Support
-        </button>
-        <button 
-          onClick={() => setActiveTab('supabase')}
-          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'supabase' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          ☁ Intégration Supabase
-        </button>
       </div>
 
       {/* Main Panel Content */}
@@ -3138,6 +3129,49 @@ export default function SuperAdminModule({
                   value={selectedLicence.dateFin}
                   onChange={(e) => setSelectedLicence({...selectedLicence, dateFin: e.target.value})}
                 />
+              </div>
+
+              {/* GESTION CONTRACTUELLE DES SUCCURSALES */}
+              <div className="border-t border-slate-800 pt-3 space-y-3">
+                <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider block">Gestion Contractuelle des Succursales</span>
+                
+                <label className="flex items-center space-x-2 bg-slate-950 p-2 rounded border border-slate-850 cursor-pointer hover:bg-slate-900">
+                  <input 
+                    type="checkbox"
+                    checked={selectedLicence.succursalesActives ?? true}
+                    onChange={(e) => setSelectedLicence({...selectedLicence, succursalesActives: e.target.checked})}
+                    className="rounded border-slate-800 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-slate-300 font-bold">Activer l'option de gestion des Succursales</span>
+                </label>
+
+                {(selectedLicence.succursalesActives ?? true) && (
+                  <div className="grid grid-cols-2 gap-3 animate-fade-in">
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Quota succursales max</label>
+                      <input 
+                        type="number"
+                        min={0}
+                        required
+                        className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                        value={selectedLicence.nombre_succursales_max ?? 5}
+                        onChange={(e) => setSelectedLicence({...selectedLicence, nombre_succursales_max: Number(e.target.value)})}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">En cas de dépassement</label>
+                      <select
+                        className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                        value={selectedLicence.depassementQuotaMode ?? 'blocage'}
+                        onChange={(e) => setSelectedLicence({...selectedLicence, depassementQuotaMode: e.target.value as any})}
+                      >
+                        <option value="blocage">🛑 Bloquer strictement</option>
+                        <option value="inactif">⚠️ Créer en "Inactif / Bloqué"</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5">
