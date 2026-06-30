@@ -566,12 +566,33 @@ export default function App() {
             historiqueLicences={historiqueLicences}
             onUpdateHistoriqueLicences={setHistoriqueLicences}
             tenants={tenants}
+            onUpdateTenants={setTenants}
             risks={risks}
+            onUpdateRisks={setRisks}
             actions={actions}
+            onUpdateActions={setActions}
             auditLogs={auditLogs}
+            onUpdateAuditLogs={setAuditLogs}
             fonctions={fonctions}
+            onUpdateFonctions={setFonctions}
             users={users}
             onUpdateUsers={setUsers}
+            affectations={affectations}
+            onUpdateAffectations={setAffectations}
+            rules={rules}
+            onUpdateRules={setRules}
+            accessProfiles={accessProfiles}
+            onUpdateAccessProfiles={setAccessProfiles}
+            auditMissions={auditMissions}
+            onUpdateAuditMissions={setAuditMissions}
+            auditFindings={auditFindings}
+            onUpdateAuditFindings={setAuditFindings}
+            complianceFrameworks={complianceFrameworks}
+            onUpdateComplianceFrameworks={setComplianceFrameworks}
+            complianceObligations={complianceObligations}
+            onUpdateComplianceObligations={setComplianceObligations}
+            complianceIncidents={complianceIncidents}
+            onUpdateComplianceIncidents={setComplianceIncidents}
             onAddLog={addAuditLog}
             onRestoreTenantData={(tenantId, restoredData) => {
               if (tenantId === 'tenant1') {
@@ -655,32 +676,6 @@ export default function App() {
                 onUpdateAccessProfiles={setAccessProfiles}
                 users={users}
                 onAddLog={addAuditLog}
-                
-                tenants={tenants}
-                onUpdateTenants={setTenants}
-                risks={risks}
-                onUpdateRisks={setRisks}
-                actions={actions}
-                onUpdateActions={setActions}
-                auditLogs={auditLogs}
-                onUpdateAuditLogs={setAuditLogs}
-                onUpdateUsers={setUsers}
-                auditMissions={auditMissions}
-                onUpdateAuditMissions={setAuditMissions}
-                auditFindings={auditFindings}
-                onUpdateAuditFindings={setAuditFindings}
-                complianceFrameworks={complianceFrameworks}
-                onUpdateComplianceFrameworks={setComplianceFrameworks}
-                complianceObligations={complianceObligations}
-                onUpdateComplianceObligations={setComplianceObligations}
-                complianceIncidents={complianceIncidents}
-                onUpdateComplianceIncidents={setComplianceIncidents}
-                entreprises={entreprises}
-                onUpdateEntreprises={setEntreprises}
-                licences={licences}
-                onUpdateLicences={setLicences}
-                historiqueLicences={historiqueLicences}
-                onUpdateHistoriqueLicences={setHistoriqueLicences}
               />
             )}
 

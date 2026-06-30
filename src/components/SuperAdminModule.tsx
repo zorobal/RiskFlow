@@ -28,7 +28,13 @@ import {
   Clock,
   Settings,
   X,
-  Smartphone
+  Smartphone,
+  Server,
+  CloudLightning,
+  Code,
+  Copy,
+  Check,
+  AlertCircle
 } from 'lucide-react';
 import { 
   EntrepriseCliente, 
@@ -41,6 +47,15 @@ import {
   AuditLog, 
   Fonction 
 } from '../types';
+import { 
+  getSupabaseConfig, 
+  getSupabaseClient, 
+  testSupabaseConnection, 
+  pushAllToSupabase, 
+  pullAllFromSupabase, 
+  getSqlSchema, 
+  resetSupabaseClient 
+} from '../lib/supabase';
 
 interface SuperAdminModuleProps {
   entreprises: EntrepriseCliente[];
@@ -50,12 +65,33 @@ interface SuperAdminModuleProps {
   historiqueLicences: HistoriqueLicence[];
   onUpdateHistoriqueLicences: React.Dispatch<React.SetStateAction<HistoriqueLicence[]>>;
   tenants: TenantConfig[];
+  onUpdateTenants: React.Dispatch<React.SetStateAction<TenantConfig[]>>;
   risks: Risk[];
+  onUpdateRisks: React.Dispatch<React.SetStateAction<Risk[]>>;
   actions: ActionPlan[];
+  onUpdateActions: React.Dispatch<React.SetStateAction<ActionPlan[]>>;
   auditLogs: AuditLog[];
+  onUpdateAuditLogs: React.Dispatch<React.SetStateAction<AuditLog[]>>;
   fonctions: Fonction[];
+  onUpdateFonctions: React.Dispatch<React.SetStateAction<Fonction[]>>;
   users: any[];
   onUpdateUsers: React.Dispatch<React.SetStateAction<any[]>>;
+  affectations: any[];
+  onUpdateAffectations: React.Dispatch<React.SetStateAction<any[]>>;
+  rules: any[];
+  onUpdateRules: React.Dispatch<React.SetStateAction<any[]>>;
+  accessProfiles: any[];
+  onUpdateAccessProfiles: React.Dispatch<React.SetStateAction<any[]>>;
+  auditMissions: any[];
+  onUpdateAuditMissions: React.Dispatch<React.SetStateAction<any[]>>;
+  auditFindings: any[];
+  onUpdateAuditFindings: React.Dispatch<React.SetStateAction<any[]>>;
+  complianceFrameworks: any[];
+  onUpdateComplianceFrameworks: React.Dispatch<React.SetStateAction<any[]>>;
+  complianceObligations: any[];
+  onUpdateComplianceObligations: React.Dispatch<React.SetStateAction<any[]>>;
+  complianceIncidents: any[];
+  onUpdateComplianceIncidents: React.Dispatch<React.SetStateAction<any[]>>;
   onAddLog: (action: string, details: string) => void;
   onRestoreTenantData: (tenantId: string, restoredData: any) => void;
 }
@@ -68,17 +104,38 @@ export default function SuperAdminModule({
   historiqueLicences,
   onUpdateHistoriqueLicences,
   tenants,
+  onUpdateTenants,
   risks,
+  onUpdateRisks,
   actions,
+  onUpdateActions,
   auditLogs,
+  onUpdateAuditLogs,
   fonctions,
+  onUpdateFonctions,
   users,
   onUpdateUsers,
+  affectations,
+  onUpdateAffectations,
+  rules,
+  onUpdateRules,
+  accessProfiles,
+  onUpdateAccessProfiles,
+  auditMissions,
+  onUpdateAuditMissions,
+  auditFindings,
+  onUpdateAuditFindings,
+  complianceFrameworks,
+  onUpdateComplianceFrameworks,
+  complianceObligations,
+  onUpdateComplianceObligations,
+  complianceIncidents,
+  onUpdateComplianceIncidents,
   onAddLog,
   onRestoreTenantData
 }: SuperAdminModuleProps) {
   // Navigation tabs in SuperAdmin space
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'tenants' | 'licences' | 'users' | 'backups' | 'supervision' | 'support'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'tenants' | 'licences' | 'users' | 'backups' | 'supervision' | 'support' | 'supabase'>('dashboard');
   
   // SuperAdmin Role State
   const [currentRole, setCurrentRole] = useState<SuperAdminRole>('SuperAdministrateur technique');
@@ -115,6 +172,168 @@ export default function SuperAdminModule({
       status
     };
     setSystemLogs(prev => [newLog, ...prev]);
+  };
+
+  // Supabase Integration States
+  const [dbUrl, setDbUrl] = useState(() => localStorage.getItem('supabase_url_override') || '');
+  const [dbKey, setDbKey] = useState(() => localStorage.getItem('supabase_key_override') || '');
+  const [connStatus, setConnStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [connMessage, setConnMessage] = useState('');
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'pushing' | 'pulling'>('idle');
+  const [syncLogs, setSyncLogs] = useState<string[]>([]);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [autoSync, setAutoSync] = useState(() => localStorage.getItem('supabase_auto_sync') === 'true');
+
+  useEffect(() => {
+    const config = getSupabaseConfig();
+    if (config.url && config.key) {
+      testSupabaseConnection(config.url, config.key).then(res => {
+        if (res.success) {
+          setConnStatus('success');
+          setConnMessage('Supabase connecté ! ' + (config.isOverridden ? '(Surcharges manuelles)' : '(Variables d\'environnement)'));
+        } else {
+          setConnStatus('error');
+          setConnMessage(res.message);
+        }
+      });
+    }
+  }, []);
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(getSqlSchema());
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2000);
+  };
+
+  const handleTestConnection = async () => {
+    if (!dbUrl || !dbKey) {
+      setConnStatus('error');
+      setConnMessage('Veuillez spécifier l\'URL Supabase et la clé d\'API Anon.');
+      return;
+    }
+    setConnStatus('loading');
+    setConnMessage('Test de la connexion en cours...');
+    try {
+      const result = await testSupabaseConnection(dbUrl, dbKey);
+      if (result.success) {
+        setConnStatus('success');
+        localStorage.setItem('supabase_url_override', dbUrl);
+        localStorage.setItem('supabase_key_override', dbKey);
+        resetSupabaseClient();
+        addSystemLog('Intégration Cloud', 'Connexion réussie à la base de données Supabase.', 'Succès');
+      } else {
+        setConnStatus('error');
+      }
+      setConnMessage(result.message);
+    } catch (e: any) {
+      setConnStatus('error');
+      setConnMessage(`Erreur : ${e?.message || 'Identifiants invalides'}`);
+    }
+  };
+
+  const handleClearConfig = () => {
+    localStorage.removeItem('supabase_url_override');
+    localStorage.removeItem('supabase_key_override');
+    setDbUrl('');
+    setDbKey('');
+    setConnStatus('idle');
+    setConnMessage('Configuration réinitialisée. Les variables d\'environnement système seront privilégiées.');
+    resetSupabaseClient();
+    addSystemLog('Intégration Cloud', 'Réinitialisation des configurations d\'accès à la base de données', 'Succès');
+  };
+
+  const handlePushData = async () => {
+    const client = getSupabaseClient();
+    if (!client) {
+      alert('Erreur : Aucun client Supabase connecté. Veuillez configurer les accès.');
+      return;
+    }
+    setSyncStatus('pushing');
+    setSyncLogs(['Début du transfert des tables...', 'Lecture des données locales...']);
+
+    const dataset = {
+      tenants: tenants || [],
+      users: users || [],
+      risks: risks || [],
+      actions: actions || [],
+      auditLogs: auditLogs || [],
+      fonctions: fonctions || [],
+      affectations: affectations || [],
+      rules: rules || [],
+      accessProfiles: accessProfiles || [],
+      auditMissions: auditMissions || [],
+      auditFindings: auditFindings || [],
+      complianceFrameworks: complianceFrameworks || [],
+      complianceObligations: complianceObligations || [],
+      complianceIncidents: complianceIncidents || [],
+      entreprises: entreprises || [],
+      licences: licences || [],
+      historiqueLicences: historiqueLicences || [],
+    };
+
+    try {
+      const res = await pushAllToSupabase(client, dataset);
+      if (res.success) {
+        setSyncLogs(prev => [...prev, '✓ Données synchronisées avec succès sur Supabase (17 tables) !']);
+        addSystemLog('Supabase Push', 'Transfert complet des données locales vers Supabase', 'Succès');
+      } else {
+        setSyncLogs(prev => [...prev, '⚠ Des erreurs ont été détectées :', ...res.messages]);
+      }
+    } catch (err: any) {
+      setSyncLogs(prev => [...prev, `Erreur critique : ${err?.message || err}`]);
+    } finally {
+      setSyncStatus('idle');
+    }
+  };
+
+  const handlePullData = async () => {
+    const client = getSupabaseClient();
+    if (!client) {
+      alert('Erreur : Aucun client Supabase connecté. Veuillez configurer les accès.');
+      return;
+    }
+    setSyncStatus('pulling');
+    setSyncLogs(['Début de la récupération des données...', 'Interrogation des tables cloud...']);
+
+    try {
+      const res = await pullAllFromSupabase(client);
+      if (res.success && res.data) {
+        const d = res.data;
+        if (onUpdateTenants && d.tenants && d.tenants.length > 0) onUpdateTenants(d.tenants);
+        if (onUpdateUsers && d.users && d.users.length > 0) onUpdateUsers(d.users);
+        if (onUpdateRisks && d.risks && d.risks.length > 0) onUpdateRisks(d.risks);
+        if (onUpdateActions && d.actions && d.actions.length > 0) onUpdateActions(d.actions);
+        if (onUpdateAuditLogs && d.auditLogs && d.auditLogs.length > 0) onUpdateAuditLogs(d.auditLogs);
+        if (onUpdateFonctions && d.fonctions && d.fonctions.length > 0) onUpdateFonctions(d.fonctions);
+        if (onUpdateAffectations && d.affectations && d.affectations.length > 0) onUpdateAffectations(d.affectations);
+        if (onUpdateRules && d.rules && d.rules.length > 0) onUpdateRules(d.rules);
+        if (onUpdateAccessProfiles && d.accessProfiles && d.accessProfiles.length > 0) onUpdateAccessProfiles(d.accessProfiles);
+        if (onUpdateAuditMissions && d.auditMissions && d.auditMissions.length > 0) onUpdateAuditMissions(d.auditMissions);
+        if (onUpdateAuditFindings && d.auditFindings && d.auditFindings.length > 0) onUpdateAuditFindings(d.auditFindings);
+        if (onUpdateComplianceFrameworks && d.complianceFrameworks && d.complianceFrameworks.length > 0) onUpdateComplianceFrameworks(d.complianceFrameworks);
+        if (onUpdateComplianceObligations && d.complianceObligations && d.complianceObligations.length > 0) onUpdateComplianceObligations(d.complianceObligations);
+        if (onUpdateComplianceIncidents && d.complianceIncidents && d.complianceIncidents.length > 0) onUpdateComplianceIncidents(d.complianceIncidents);
+        if (onUpdateEntreprises && d.entreprises && d.entreprises.length > 0) onUpdateEntreprises(d.entreprises);
+        if (onUpdateLicences && d.licences && d.licences.length > 0) onUpdateLicences(d.licences);
+        if (onUpdateHistoriqueLicences && d.historiqueLicences && d.historiqueLicences.length > 0) onUpdateHistoriqueLicences(d.historiqueLicences);
+
+        setSyncLogs(prev => [...prev, '✓ Récupération cloud réussie ! L\'ERP local a été mis à jour.']);
+        addSystemLog('Supabase Pull', 'Synchronisation locale des données depuis Supabase', 'Succès');
+      } else {
+        setSyncLogs(prev => [...prev, `⚠ Échec : ${res.message}`]);
+      }
+    } catch (err: any) {
+      setSyncLogs(prev => [...prev, `Erreur : ${err?.message || err}`]);
+    } finally {
+      setSyncStatus('idle');
+    }
+  };
+
+  const handleToggleAutoSync = () => {
+    const nextVal = !autoSync;
+    setAutoSync(nextVal);
+    localStorage.setItem('supabase_auto_sync', String(nextVal));
+    addSystemLog('Supabase Config', `Auto-Sync ${nextVal ? 'activé' : 'désactivé'}`, 'Succès');
   };
 
   // Diagnostic Mode states
@@ -765,6 +984,14 @@ export default function SuperAdminModule({
           }`}
         >
           Diagnostic & Support
+        </button>
+        <button 
+          onClick={() => setActiveTab('supabase')}
+          className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
+            activeTab === 'supabase' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          ☁ Intégration Supabase
         </button>
       </div>
 
@@ -1828,6 +2055,251 @@ export default function SuperAdminModule({
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ==================== TAB: SUPABASE INTEGRATION ==================== */}
+        {activeTab === 'supabase' && (
+          <div className="space-y-6 animate-fade-in text-xs text-slate-300">
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg space-y-4">
+              <div className="flex items-center space-x-2 text-amber-400 border-b border-slate-800 pb-3">
+                <Database className="w-5 h-5 text-amber-500 animate-pulse" />
+                <h3 className="font-bold text-white text-sm">Intégration Cloud Supabase (Moteur PostgreSQL)</h3>
+              </div>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                Configurez la connexion avec votre instance PostgreSQL hébergée chez <strong className="text-amber-400">Supabase</strong>. Cette fonctionnalité de synchronisation multi-tenant et de réplication cloud est strictement restreinte aux <strong className="text-white">SuperAdministrateurs de la Plateforme</strong> pour des raisons de sécurité de l'infrastructure.
+              </p>
+
+              {/* SECTION 1: CREDENTIALS */}
+              <div className="p-5 bg-slate-950 border border-slate-800 rounded-xl space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h4 className="font-bold text-white text-xs flex items-center gap-2">
+                    <Server className="w-4 h-4 text-indigo-400" />
+                    1. Paramètres de Connexion Supabase
+                  </h4>
+                  {connStatus === 'success' ? (
+                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-bold px-2.5 py-1 rounded text-[10px] flex items-center gap-1 self-start">
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                      RÉSEAU CONNECTÉ & FONCTIONNEL
+                    </span>
+                  ) : connStatus === 'loading' ? (
+                    <span className="bg-blue-500/10 text-blue-400 border border-blue-500/25 font-bold px-2.5 py-1 rounded text-[10px] flex items-center gap-1 animate-pulse self-start">
+                      <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin" />
+                      TENTATIVE D'ACCÈS...
+                    </span>
+                  ) : (
+                    <span className="bg-slate-800 text-slate-400 border border-slate-700 font-bold px-2.5 py-1 rounded text-[10px] flex items-center gap-1 self-start">
+                      <AlertCircle className="w-3.5 h-3.5 text-slate-500" />
+                      ACCÈS NON CONFIGURÉ
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wide block">URL du Projet (API endpoint)</label>
+                    <input
+                      type="text"
+                      placeholder="https://your-project-id.supabase.co"
+                      value={dbUrl}
+                      onChange={(e) => {
+                        setDbUrl(e.target.value);
+                        setConnStatus('idle');
+                      }}
+                      className="w-full bg-slate-900 border border-slate-800 rounded p-2 text-xs font-mono text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wide block">Clé d'API publique (anon key)</label>
+                    <input
+                      type="password"
+                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      value={dbKey}
+                      onChange={(e) => {
+                        setDbKey(e.target.value);
+                        setConnStatus('idle');
+                      }}
+                      className="w-full bg-slate-900 border border-slate-800 rounded p-2 text-xs font-mono text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleTestConnection}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow transition text-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <CloudLightning className="w-3.5 h-3.5" />
+                    Tester & Enregistrer les identifiants
+                  </button>
+                  {(dbUrl || dbKey) && (
+                    <button
+                      type="button"
+                      onClick={handleClearConfig}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded transition text-xs cursor-pointer"
+                    >
+                      Réinitialiser par défaut (Clés système)
+                    </button>
+                  )}
+                </div>
+
+                {connMessage && (
+                  <div className={`p-3 rounded-lg border text-[11px] leading-relaxed flex items-start gap-2 ${
+                    connStatus === 'success' 
+                      ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300' 
+                      : connStatus === 'error'
+                      ? 'bg-red-950/40 border-red-900 text-red-300'
+                      : 'bg-indigo-950/40 border-indigo-900 text-indigo-300'
+                  }`}>
+                    <div className="mt-0.5 font-bold">● Statut :</div>
+                    <div className="flex-1 font-medium">{connMessage}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 2: SQL SCHEMA GENERATOR */}
+              <div className="p-5 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="font-bold text-white text-xs flex items-center gap-2">
+                    <Code className="w-4 h-4 text-amber-500" />
+                    2. Schéma d'initialisation PostgreSQL (Supabase SQL Editor)
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={handleCopySql}
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-indigo-400 font-bold rounded text-[10px] transition cursor-pointer flex items-center gap-1"
+                  >
+                    {copiedSql ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copié !</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copier le Script SQL</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-slate-400 text-[10.5px] leading-relaxed">
+                  Avant de commencer le transit de données, exécutez le script SQL ci-dessous dans la console de votre projet Supabase (<strong className="text-indigo-400">SQL Editor</strong>) pour configurer les 17 tables relationnelles de la plateforme ERP GRC.
+                </p>
+
+                <div className="relative">
+                  <pre className="p-4 bg-slate-950 text-slate-400 rounded-lg text-[10px] font-mono overflow-x-auto max-h-52 overflow-y-auto border border-slate-850 shadow-inner select-all leading-normal">
+                    {getSqlSchema()}
+                  </pre>
+                </div>
+              </div>
+
+              {/* SECTION 3: DATA SYNCHRONIZATION */}
+              <div className="p-5 bg-slate-950 border border-slate-800 rounded-xl space-y-4">
+                <h4 className="font-bold text-white text-xs flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 text-emerald-400" />
+                  3. Synchronisation et transit des données locales & distantes
+                </h4>
+                <p className="text-slate-400 text-[10.5px]">
+                  Basculez librement vos données entre le stockage local du navigateur et la base de données relationnelle Supabase de l'organisation.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Push controls */}
+                  <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-3">
+                    <h5 className="font-bold text-white text-[11px] uppercase tracking-wide">
+                      Push (Navigateur Local ➔ Base PostgreSQL)
+                    </h5>
+                    <p className="text-slate-400 text-[10px] leading-relaxed">
+                      Publier l'intégralité des configurations locales, utilisateurs, risques, contrôles, audits, et licences vers votre base de données Supabase cloud.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handlePushData}
+                      disabled={connStatus !== 'success' || syncStatus !== 'idle'}
+                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold rounded shadow transition text-xs cursor-pointer text-center flex items-center justify-center gap-1.5"
+                    >
+                      {syncStatus === 'pushing' ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          Envoi en cours...
+                        </>
+                      ) : (
+                        <>
+                          <CloudLightning className="w-3.5 h-3.5" />
+                          Lancer la Synchronisation Push
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Pull controls */}
+                  <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-3">
+                    <h5 className="font-bold text-white text-[11px] uppercase tracking-wide">
+                      Pull (Base PostgreSQL ➔ Navigateur Local)
+                    </h5>
+                    <p className="text-slate-400 text-[10px] leading-relaxed">
+                      Importer l'intégralité des données GRC depuis la base de données Supabase cloud et écraser toutes les informations en cours d'utilisation dans ce navigateur.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handlePullData}
+                      disabled={connStatus !== 'success' || syncStatus !== 'idle'}
+                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold rounded shadow transition text-xs cursor-pointer text-center flex items-center justify-center gap-1.5"
+                    >
+                      {syncStatus === 'pulling' ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          Récupération...
+                        </>
+                      ) : (
+                        <>
+                          <Database className="w-3.5 h-3.5" />
+                          Lancer la Synchronisation Pull
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Auto-Sync Switch */}
+                <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <h5 className="font-bold text-amber-400 text-xs">Mise à jour en temps réel automatique (Auto-Sync)</h5>
+                    <p className="text-slate-400 text-[10px]">
+                      Lorsque cette option de réplication cloud est activée, toutes les modifications du système (création de risques, plans d'actions, comptes, licences, audits) sont automatiquement transmises à Supabase.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleAutoSync}
+                    className={`w-11 h-6 rounded-full transition-colors duration-200 ease-in-out shrink-0 relative focus:outline-none cursor-pointer ${
+                      autoSync ? 'bg-amber-600' : 'bg-slate-800'
+                    }`}
+                  >
+                    <span 
+                      className={`inline-block w-4 h-4 rounded-full bg-white transform transition-transform duration-200 ease-in-out absolute top-1 left-1 ${
+                        autoSync ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Sync Logs */}
+                {syncLogs.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Console de synchronisation :</div>
+                    <div className="p-3 bg-slate-950 text-slate-350 rounded-lg font-mono text-[9px] max-h-36 overflow-y-auto space-y-1 shadow-inner border border-slate-900 leading-normal select-text">
+                      {syncLogs.map((log, idx) => (
+                        <div key={idx} className={log.startsWith('✓') ? 'text-emerald-400' : log.startsWith('⚠') ? 'text-amber-400' : 'text-slate-400'}>
+                          {log}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
