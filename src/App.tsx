@@ -359,6 +359,7 @@ export default function App() {
 
   // Current selected configurations
   const activeTenantConfig = tenants.find(t => t.id === activeTenantId) || tenants[0];
+  const activeEntreprise = entreprises.find(e => e.id === activeTenantId) || entreprises.find(e => e.id === activeTenantConfig.id);
   
   // Scoped risk list belonging to active Tenant
   const activeTenantRisks = risks.filter(r => {
@@ -627,6 +628,7 @@ export default function App() {
                 actions={actions}
                 users={users}
                 currentUser={currentUser}
+                isSuperAdminMode={isSuperAdminMode}
                 onAddRisk={handleAddRisk}
                 onUpdateRisk={handleUpdateRisk}
                 onDeleteRisk={handleDeleteRisk}
@@ -676,6 +678,7 @@ export default function App() {
                 onUpdateAccessProfiles={setAccessProfiles}
                 users={users}
                 onAddLog={addAuditLog}
+                maxSuccursales={activeEntreprise?.maxSuccursales || 5}
               />
             )}
 

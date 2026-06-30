@@ -55,6 +55,7 @@ interface ConfigModuleProps {
   onUpdateAccessProfiles: (aps: AccessProfile[]) => void;
   users: GrcUser[];
   onAddLog: (action: string, details: string) => void;
+  maxSuccursales?: number;
 }
 
 export default function ConfigModule({
@@ -69,7 +70,8 @@ export default function ConfigModule({
   accessProfiles,
   onUpdateAccessProfiles,
   users,
-  onAddLog
+  onAddLog,
+  maxSuccursales = 5
 }: ConfigModuleProps) {
   // Config Modules Sub-tab switcher
   const [activeTab, setActiveTab] = useState<'org' | 'functions' | 'rules' | 'scales' | 'formula' | 'categories' | 'workflow' | 'rights'>('org');
@@ -117,6 +119,19 @@ export default function ConfigModule({
   const handleAddOrgNode = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newOrgName.trim()) return;
+
+    // Validation on the number of succursales/filiales (billable)
+    const succursalesTypes = ['Filiale', 'Site'];
+    if (succursalesTypes.includes(newOrgType)) {
+      const currentSuccursalesCount = tenantConfig.entities.filter(
+        ent => ent.statut !== 'Archivé' && succursalesTypes.includes(ent.type)
+      ).length;
+
+      if (currentSuccursalesCount >= maxSuccursales) {
+        alert(`⚠️ Limite commerciale atteinte :\n\nVotre licence actuelle limite le nombre de succursales/filiales à ${maxSuccursales}.\n\nVeuillez contacter le SuperAdmin pour modifier votre offre contractuelle et augmenter ce quota facturable.`);
+        return;
+      }
+    }
 
     const codeShort = newOrgCode.trim() || newOrgName.toUpperCase().substring(0, 5).replace(/ /g, '-');
     const newNode: OrgEntity = {
@@ -496,6 +511,22 @@ export default function ConfigModule({
                   <h3 className="font-bold text-sm text-slate-800">Organigramme Hiérarchique & Matriciel (Section 2.1)</h3>
                   <p className="text-slate-400 text-[10.5px]">Configurez la structure arborescente de votre organisation avec gestion des rattachements fonctionnels multiples.</p>
                 </div>
+                {(() => {
+                  const currentSuccursalesCount = tenantConfig.entities.filter(
+                    e => e.statut !== 'Archivé' && (e.type === 'Filiale' || e.type === 'Site')
+                  ).length;
+                  const isNearLimit = currentSuccursalesCount >= maxSuccursales;
+                  return (
+                    <div className={`border rounded px-3 py-1.5 text-right ${
+                      isNearLimit ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50/70 border-amber-150 text-amber-900'
+                    }`}>
+                      <span className="text-[9px] text-slate-500 block font-bold uppercase tracking-wider">Quota Succursales & Sites</span>
+                      <span className="font-mono text-xs font-bold">
+                        {currentSuccursalesCount} / {maxSuccursales} autorisés
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Add form */}

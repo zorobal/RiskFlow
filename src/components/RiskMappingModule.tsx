@@ -30,6 +30,7 @@ interface RiskMappingModuleProps {
   actions: ActionPlan[];
   users: User[];
   currentUser: User;
+  isSuperAdminMode?: boolean;
   onAddRisk: (risk: Omit<Risk, 'id' | 'scoreBrut' | 'scoreResiduel' | 'createdAt' | 'history'>) => void;
   onUpdateRisk: (risk: Risk) => void;
   onDeleteRisk: (id: string) => void;
@@ -43,6 +44,7 @@ export default function RiskMappingModule({
   actions,
   users,
   currentUser,
+  isSuperAdminMode = false,
   onAddRisk,
   onUpdateRisk,
   onDeleteRisk,
@@ -297,7 +299,7 @@ export default function RiskMappingModule({
         </div>
 
         {/* Modular filters ribbon */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
+        <div className={`grid grid-cols-1 ${(isSuperAdminMode || tenantConfig.showWorkflowFilter) ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3 p-3 bg-white rounded-lg border border-slate-200 shadow-sm`}>
           <div>
             <label className="text-[10px] text-slate-400 font-bold block h-4">Catégorie</label>
             <select
@@ -324,19 +326,21 @@ export default function RiskMappingModule({
               ))}
             </select>
           </div>
-          <div>
-            <label className="text-[10px] text-slate-400 font-bold block h-4">Étape Workflow</label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded px-2 py-1 w-full"
-            >
-              <option value="all">Tous</option>
-              {tenantConfig.workflowSteps.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
+          {(isSuperAdminMode || tenantConfig.showWorkflowFilter) && (
+            <div>
+              <label className="text-[10px] text-slate-400 font-bold block h-4">Étape Workflow</label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded px-2 py-1 w-full"
+              >
+                <option value="all">Tous</option>
+                {tenantConfig.workflowSteps.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         
         {/* RISKS VIEWPORT CONTAINER */}

@@ -191,6 +191,7 @@ export interface TenantConfig {
   workflowSteps: { id: string; name: string; color: string; order: number }[];
   categories: RiskCategory[];
   entities: OrgEntity[];
+  showWorkflowFilter?: boolean;
 }
 
 export interface ActionPlan {
@@ -252,6 +253,7 @@ export interface EntrepriseCliente {
   statutCompte: 'Essai' | 'Actif' | 'Suspendu' | 'Résilié' | 'Archivé';
   regionHebergement: string;
   idContactPrincipal: string; // Linked to a user ID or contact name
+  maxSuccursales?: number; // Authorized subsidiaries/succursales the client can add
 }
 
 export interface Licence {

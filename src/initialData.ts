@@ -588,7 +588,8 @@ export const PRESET_ENTREPRISES: EntrepriseCliente[] = [
     dateCreationCompte: '2025-01-10',
     statutCompte: 'Actif',
     regionHebergement: 'Afrique Centrale (Yaoundé / Douala)',
-    idContactPrincipal: 'Alain-Patrick Nkoumou'
+    idContactPrincipal: 'Alain-Patrick Nkoumou',
+    maxSuccursales: 8
   },
   {
     id: 'tenant2',
@@ -597,7 +598,8 @@ export const PRESET_ENTREPRISES: EntrepriseCliente[] = [
     dateCreationCompte: '2025-03-15',
     statutCompte: 'Actif',
     regionHebergement: 'Afrique Centrale (Yaoundé)',
-    idContactPrincipal: 'Marie-Thérèse Atangana'
+    idContactPrincipal: 'Marie-Thérèse Atangana',
+    maxSuccursales: 5
   },
   {
     id: 'tenant3',
@@ -606,7 +608,8 @@ export const PRESET_ENTREPRISES: EntrepriseCliente[] = [
     dateCreationCompte: '2026-06-01',
     statutCompte: 'Essai',
     regionHebergement: 'Afrique Centrale (Douala)',
-    idContactPrincipal: 'Jean-Pierre Ndzana'
+    idContactPrincipal: 'Jean-Pierre Ndzana',
+    maxSuccursales: 3
   },
   {
     id: 'tenant4',
@@ -615,7 +618,8 @@ export const PRESET_ENTREPRISES: EntrepriseCliente[] = [
     dateCreationCompte: '2024-11-20',
     statutCompte: 'Suspendu',
     regionHebergement: 'Afrique de l\'Ouest (Abidjan)',
-    idContactPrincipal: 'Dieudonné Mbarga'
+    idContactPrincipal: 'Dieudonné Mbarga',
+    maxSuccursales: 10
   }
 ];
 

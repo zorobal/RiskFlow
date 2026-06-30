@@ -164,7 +164,7 @@ export default function SuperAdminModule({
 
   const addSystemLog = (action: string, details: string, status: 'Succès' | 'Échec' | 'Alerte' = 'Succès') => {
     const newLog = {
-      id: `sys_${Date.now()}`,
+      id: `sys_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       timestamp: new Date().toISOString(),
       role: currentRole,
       action,
@@ -245,7 +245,7 @@ export default function SuperAdminModule({
   const handlePushData = async () => {
     const client = getSupabaseClient();
     if (!client) {
-      alert('Erreur : Aucun client Supabase connecté. Veuillez configurer les accès.');
+      triggerAlert('Erreur : Aucun client Supabase connecté. Veuillez configurer les accès.', "error");
       return;
     }
     setSyncStatus('pushing');
@@ -289,7 +289,7 @@ export default function SuperAdminModule({
   const handlePullData = async () => {
     const client = getSupabaseClient();
     if (!client) {
-      alert('Erreur : Aucun client Supabase connecté. Veuillez configurer les accès.');
+      triggerAlert('Erreur : Aucun client Supabase connecté. Veuillez configurer les accès.', "error");
       return;
     }
     setSyncStatus('pulling');
@@ -346,6 +346,12 @@ export default function SuperAdminModule({
   const [showAddCompanyModal, setShowAddCompanyModal] = useState(false);
   const [showEditLicenceModal, setShowEditLicenceModal] = useState(false);
   const [selectedLicence, setSelectedLicence] = useState<Licence | null>(null);
+
+  // Security & Workflow configuration states for tenants
+  const [showWorkflowConfigModal, setShowWorkflowConfigModal] = useState(false);
+  const [selectedConfigTenantId, setSelectedConfigTenantId] = useState<string | null>(null);
+  const [tempWorkflowSteps, setTempWorkflowSteps] = useState<{ id: string; name: string; color: string; order: number }[]>([]);
+  const [tempShowWorkflowFilter, setTempShowWorkflowFilter] = useState(false);
   
   // New Company form
   const [newCompany, setNewCompany] = useState({
@@ -355,8 +361,12 @@ export default function SuperAdminModule({
     contactPrincipal: '',
     typeAbonnement: 'Mensuel' as 'Mensuel' | 'Annuel' | 'Sur devis',
     maxUsers: 10,
+    maxSuccursales: 5,
     modules: ['Cartographie', 'Plans d\'action'] as ('Cartographie' | 'Plans d\'action' | 'Audit' | 'Conformité' | 'Reporting')[]
   });
+
+  const [showEditCompanyModal, setShowEditCompanyModal] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<EntrepriseCliente | null>(null);
 
   // SuperAdmin password update states
   const [newAdminPassword, setNewAdminPassword] = useState('');
@@ -407,12 +417,12 @@ export default function SuperAdminModule({
   const handleAddClientUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClientUserName || !newClientUserEmail || !newClientUserPassword) {
-      alert("Veuillez remplir tous les champs obligatoires.");
+      triggerAlert("Veuillez remplir tous les champs obligatoires.", "warning");
       return;
     }
 
     const newUser = {
-      id: `u_${Date.now()}`,
+      id: `u_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       name: newClientUserName,
       email: newClientUserEmail,
       role: newClientUserRole,
@@ -427,13 +437,13 @@ export default function SuperAdminModule({
     setNewClientUserEmail('');
     setNewClientUserPassword('');
     addSystemLog('Habilitation', `Création du compte d'accès client : ${newClientUserName} (${newClientUserRole})`, 'Succès');
-    alert(`Compte client créé avec succès pour ${newClientUserName}.`);
+    triggerAlert(`Compte client créé avec succès pour ${newClientUserName}.`, "success");
   };
 
   const handleSaveEditUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUserEmail || !editingUserName) {
-      alert("Champs obligatoires manquants.");
+      triggerAlert("Champs obligatoires manquants.", "warning");
       return;
     }
 
@@ -453,14 +463,19 @@ export default function SuperAdminModule({
 
     addSystemLog('Habilitation', `Modification du compte d'accès client : ${editingUserName}`, 'Succès');
     setEditingUserId(null);
-    alert('Modifications enregistrées avec succès.');
+    triggerAlert('Modifications enregistrées avec succès.', "success");
   };
 
   const handleDeleteClientUser = (userId: string, userName: string) => {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer définitivement le compte de ${userName} ?`)) {
-      onUpdateUsers(prev => prev.filter(u => u.id !== userId));
-      addSystemLog('Habilitation', `Suppression du compte d'accès client : ${userName}`, 'Succès');
-    }
+    triggerConfirm(
+      "Supprimer le compte utilisateur",
+      `Êtes-vous sûr de vouloir supprimer définitivement le compte de ${userName} ?`,
+      () => {
+        onUpdateUsers(prev => prev.filter(u => u.id !== userId));
+        addSystemLog('Habilitation', `Suppression du compte d'accès client : ${userName}`, 'Succès');
+        triggerAlert("Le compte utilisateur a été supprimé avec succès.", "success");
+      }
+    );
   };
 
   // Filters
@@ -480,6 +495,47 @@ export default function SuperAdminModule({
   const [importText, setImportText] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [exportData, setExportData] = useState<string>('');
+
+  const [clientBackups, setClientBackups] = useState<{
+    id: string;
+    companyId: string;
+    companyName: string;
+    timestamp: string;
+    sizeBytes: number;
+    data: any;
+  }[]>(() => {
+    const saved = localStorage.getItem('grc_client_backups_list');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'bk_preset_1',
+        companyId: 'tenant1',
+        companyName: 'Sogesti International S.A.',
+        timestamp: '30/06/2026, 04:00:00',
+        sizeBytes: 15420,
+        data: null // Simulated backup
+      },
+      {
+        id: 'bk_preset_2',
+        companyId: 'tenant2',
+        companyName: 'AeroTech France',
+        timestamp: '29/06/2026, 00:00:00',
+        sizeBytes: 24110,
+        data: null // Simulated backup
+      }
+    ];
+  });
+
+  // Custom Alert and Confirm Dialog states to bypass iframe sandboxing restrictions on window.alert / window.confirm
+  const [customAlert, setCustomAlert] = useState<{ message: string; type: 'info' | 'success' | 'error' | 'warning' } | null>(null);
+  const [customConfirm, setCustomConfirm] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+
+  const triggerAlert = (message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
+    setCustomAlert({ message, type });
+  };
+
+  const triggerConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setCustomConfirm({ title, message, onConfirm });
+  };
 
   // Handle simulated MFA confirmation
   const handleVerifyMfa = (e: React.FormEvent) => {
@@ -519,12 +575,12 @@ export default function SuperAdminModule({
   const handleCreateCompany = (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasPermission('COMMERCIAL')) {
-      alert("Votre sous-rôle actuel ne vous autorise pas à réaliser des opérations commerciales.");
+      triggerAlert("Votre sous-rôle actuel ne vous autorise pas à réaliser des opérations commerciales.", "error");
       return;
     }
 
-    const companyId = `tenant_${Date.now()}`;
-    const licenceId = `lic_${Date.now()}`;
+    const companyId = `tenant_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const licenceId = `lic_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     const newCompanyObj: EntrepriseCliente = {
       id: companyId,
@@ -533,7 +589,8 @@ export default function SuperAdminModule({
       dateCreationCompte: new Date().toISOString().split('T')[0],
       statutCompte: 'Essai',
       regionHebergement: newCompany.regionHebergement,
-      idContactPrincipal: newCompany.contactPrincipal || 'Administrateur Client'
+      idContactPrincipal: newCompany.contactPrincipal || 'Administrateur Client',
+      maxSuccursales: Number(newCompany.maxSuccursales || 5)
     };
 
     const newLicenceObj: Licence = {
@@ -545,23 +602,89 @@ export default function SuperAdminModule({
       modulesActives: newCompany.modules as any,
       dateDebut: new Date().toISOString().split('T')[0],
       dateFin: new Date(Date.now() + 3600000 * 24 * 30).toISOString().split('T')[0], // 30 days trial
-      statutLicence: 'En période d\'essai'
+      statutLicence: "En période d'essai"
     };
 
     const newHist: HistoriqueLicence = {
-      id: `hist_${Date.now()}`,
+      id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       licenceId: licenceId,
       typeChangement: 'Création',
       dateChangement: new Date().toISOString().split('T')[0],
       effectuePar: currentRole,
-      details: `Création de l'entreprise ${newCompany.raisonSociale} avec offre ${newCompany.typeAbonnement} (${newCompany.maxUsers} max users).`
+      details: `Création de l'entreprise ${newCompany.raisonSociale} avec offre ${newCompany.typeAbonnement} (${newCompany.maxUsers} max users). Succursales autorisées: ${newCompany.maxSuccursales}.`
+    };
+
+    // Standard Tenant Config initialization so the tenant actually exists and can be logged into!
+    const newTenantConfig: TenantConfig = {
+      id: companyId,
+      companyName: newCompany.raisonSociale,
+      logoUrl: 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=80&fit=crop&q=80',
+      matrixSize: 4,
+      scales: {
+        frequency: [
+          { value: 1, label: 'Exceptionnel', description: 'Occurrence quasi nulle (<1%) sur 2 ans' },
+          { value: 2, label: 'Rare', description: 'Occurrence possible mais peu probable (1 à 10%) sur 2 ans' },
+          { value: 3, label: 'Probable', description: 'Occurrence plausible (10 à 50%) sur 2 ans' },
+          { value: 4, label: 'Fréquent', description: 'Occurrence quasi certaine (>50%) sur 2 ans' },
+        ],
+        impact: [
+          { value: 1, label: 'Mineur', description: '<5% du résultat net annuel. Perturbation minimale, pas de communication.' },
+          { value: 2, label: 'Significatif', description: '5% à 30% du résultat annuel. Communication défavorable locale, avertissement.' },
+          { value: 3, label: 'Majeur', description: '30% à 50% du résultat annuel. Couverture large, blâme ou poursuite pénale.' },
+          { value: 4, label: 'Critique', description: '>50% du résultat annuel. Retrait d\'agrément, destitution ou condamnation.' },
+        ],
+        control: [
+          { value: 1, label: 'Maîtrisé', description: 'Règles écrites et détaillées, contrôles formalisés et appliqués à 100%' },
+          { value: 2, label: 'Acceptable', description: 'Règles écrites à compléter, contrôles existants et à formaliser' },
+          { value: 3, label: 'Insuffisant', description: 'Règles orales, contrôles partiels peu structurés' },
+          { value: 4, label: 'Faible / Néant', description: 'Absence d\'éléments de maîtrise, aucune règle formalisée' },
+        ],
+      },
+      formula: {
+        id: 'f1',
+        name: 'Formule IFACI Standard',
+        expression: 'P * I * M',
+        variables: [
+          { name: 'P', label: 'Probabilité/Fréquence', min: 1, max: 4 },
+          { name: 'I', label: 'Impact', min: 1, max: 4 },
+          { name: 'M', label: 'Maîtrise/Contrôle', min: 1, max: 4 },
+        ],
+        description: 'Calcul par produit simple du score brut (P x I) puis risque net (Brut x Maîtrise). Échelle de 1 à 64.',
+      },
+      matrixThresholds: [
+        { label: 'Risque faible', minScore: 0, maxScore: 6, color: 'bg-green-100 text-green-800 border-green-200', textColor: '#15803d', description: 'L\'impact sur l\'atteinte des objectifs n\'est pas préoccupant, le risque is sous contrôle.' },
+        { label: 'Risque modéré', minScore: 6.1, maxScore: 18, color: 'bg-yellow-100 text-yellow-800 border-yellow-200', textColor: '#a16207', description: 'L\'impact sur l\'atteinte des objectifs est limité. Des actions de suivi doivent être planifiées sans urgence accrue.' },
+        { label: 'Risque significatif', minScore: 18.1, maxScore: 32, color: 'bg-orange-100 text-orange-800 border-orange-200', textColor: '#c2410c', description: 'L\'impact sur l\'atteinte des objectifs est significatif. Nécessité de prendre des actions immédiates.' },
+        { label: 'Risque élevé', minScore: 32.1, maxScore: 64, color: 'bg-red-100 text-red-800 border-red-200', textColor: '#b91c1c', description: 'L\'impact est critique. Les objectifs ne seront très probablement pas atteints. Alerte direction immédiate.' },
+      ],
+      workflowSteps: [
+        { id: 'w_brouillon', name: '📊 Brouillon', color: 'bg-gray-100 text-gray-800', order: 1 },
+        { id: 'w_evaluation', name: '🔍 Évaluation en cours', color: 'bg-blue-100 text-blue-800', order: 2 },
+        { id: 'w_validation', name: '⏳ Validation Responsable', color: 'bg-amber-100 text-amber-800', order: 3 },
+        { id: 'w_approuve', name: '✅ Approuvé GRC', color: 'bg-green-100 text-green-800', order: 4 },
+      ],
+      categories: [
+        { id: 'cat_finance', name: 'Risques Financiers', color: '#3b82f6', description: 'Pertes de chiffre d\'affaires, fraudes, créances douteuses, liquidités.' },
+        { id: 'cat_operational', name: 'Risques Opérationnels', color: '#10b981', description: 'Pannes matérielles, logistique défaillante, erreurs humaines.' },
+        { id: 'cat_it', name: 'Risques SI & Cybersécurité', color: '#8b5cf6', description: 'Piratages, fuites de données d\'entreprise, pannes de serveurs.' },
+        { id: 'cat_regulatory', name: 'Risques Réglementaires & Juridiques', color: '#f59e0b', description: 'Non-conformité RGPD, amendes, poursuites judiciaires, audits défavorables.' },
+        { id: 'cat_human', name: 'Risques Humains & RH', color: '#ec4899', description: 'Fuite des talents, grèves prolongées, doutes managériaux.' },
+      ],
+      entities: [
+        { id: `e_${Date.now()}_DG`, name: `Direction Générale (${newCompany.raisonSociale})`, type: 'Direction' }
+      ],
+      showWorkflowFilter: true
     };
 
     onUpdateEntreprises(prev => [...prev, newCompanyObj]);
     onUpdateLicences(prev => [...prev, newLicenceObj]);
     onUpdateHistoriqueLicences(prev => [newHist, ...prev]);
+    if (onUpdateTenants) {
+      onUpdateTenants(prev => [...prev, newTenantConfig]);
+    }
 
     setShowAddCompanyModal(false);
+    triggerAlert(`Entreprise "${newCompany.raisonSociale}" créée avec succès !`, "success");
     addSystemLog('Création Entreprise', `Initialisation réussie de l'entreprise : ${newCompany.raisonSociale}`, 'Succès');
     
     // Reset form
@@ -572,13 +695,53 @@ export default function SuperAdminModule({
       contactPrincipal: '',
       typeAbonnement: 'Mensuel',
       maxUsers: 10,
+      maxSuccursales: 5,
       modules: ['Cartographie', 'Plans d\'action']
     });
   };
 
+  const handleOpenEditCompany = (ent: EntrepriseCliente) => {
+    if (!hasPermission('COMMERCIAL')) {
+      triggerAlert("Privilèges d'administration commerciale requis pour modifier un compte client.", "error");
+      return;
+    }
+    setEditingCompany({ ...ent, maxSuccursales: ent.maxSuccursales || 5 });
+    setShowEditCompanyModal(true);
+  };
+
+  const handleUpdateCompany = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCompany || !hasPermission('COMMERCIAL')) return;
+
+    onUpdateEntreprises(prev => prev.map(c => {
+      if (c.id === editingCompany.id) {
+        addSystemLog('Modification Entreprise', `Mise à jour des informations pour l'entreprise ${editingCompany.raisonSociale}. Succursales autorisées: ${editingCompany.maxSuccursales || 5}.`, 'Succès');
+        return { ...editingCompany, maxSuccursales: Number(editingCompany.maxSuccursales || 5) };
+      }
+      return c;
+    }));
+
+    // Update matching TenantConfig companyName
+    if (onUpdateTenants) {
+      onUpdateTenants(prev => prev.map(t => {
+        if (t.id === editingCompany.id) {
+          return {
+            ...t,
+            companyName: editingCompany.raisonSociale
+          };
+        }
+        return t;
+      }));
+    }
+
+    triggerAlert("Informations de l'entreprise mises à jour avec succès !", "success");
+    setShowEditCompanyModal(false);
+    setEditingCompany(null);
+  };
+
   const handleUpdateCompanyStatut = (id: string, newStatus: EntrepriseCliente['statutCompte']) => {
     if (!hasPermission('COMMERCIAL')) {
-      alert("Droits commerciaux requis.");
+      triggerAlert("Droits commerciaux requis.", "error");
       return;
     }
 
@@ -596,7 +759,7 @@ export default function SuperAdminModule({
             
             // Log history
             const newHist: HistoriqueLicence = {
-              id: `hist_${Date.now()}`,
+              id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
               licenceId: l.id,
               typeChangement: newStatus === 'Suspendu' ? 'Suspension' : 'Changement de palier',
               dateChangement: new Date().toISOString().split('T')[0],
@@ -618,7 +781,7 @@ export default function SuperAdminModule({
 
   const handleDeleteCompanyRequest = (ent: EntrepriseCliente) => {
     if (!hasPermission('COMMERCIAL')) {
-      alert("Droits requis.");
+      triggerAlert("Droits requis.", "error");
       return;
     }
     setDoubleValidationTarget({ type: 'delete', id: ent.id, name: ent.raisonSociale });
@@ -627,7 +790,7 @@ export default function SuperAdminModule({
 
   const handleConfirmDeleteCompany = () => {
     if (doubleValidationCode !== 'SUPPRIMER') {
-      alert('Veuillez saisir exactement le mot "SUPPRIMER" pour valider l\'opération irréversible.');
+      triggerAlert('Veuillez saisir exactement le mot "SUPPRIMER" pour valider l\'opération irréversible.', "warning");
       return;
     }
 
@@ -646,7 +809,7 @@ export default function SuperAdminModule({
   // 10.3.2 - Licence Management
   const handleOpenEditLicence = (lic: Licence) => {
     if (!hasPermission('COMMERCIAL')) {
-      alert("Privilèges d'administration commerciale requis.");
+      triggerAlert("Privilèges d'administration commerciale requis.", "error");
       return;
     }
     setSelectedLicence(lic);
@@ -663,7 +826,7 @@ export default function SuperAdminModule({
         
         // Log changes in history
         const newHist: HistoriqueLicence = {
-          id: `hist_${Date.now()}`,
+          id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
           licenceId: l.id,
           typeChangement: 'Changement de palier',
           dateChangement: new Date().toISOString().split('T')[0],
@@ -682,10 +845,76 @@ export default function SuperAdminModule({
     setSelectedLicence(null);
   };
 
+  const handleOpenWorkflowModal = (tenantId: string) => {
+    const config = tenants.find(t => t.id === tenantId);
+    if (!config) {
+      triggerAlert("Configuration du tenant introuvable.", "error");
+      return;
+    }
+    setSelectedConfigTenantId(tenantId);
+    setTempWorkflowSteps(config.workflowSteps || []);
+    setTempShowWorkflowFilter(!!config.showWorkflowFilter);
+    setShowWorkflowConfigModal(true);
+  };
+
+  const handleSaveWorkflowConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedConfigTenantId) return;
+
+    if (tempWorkflowSteps.length === 0) {
+      triggerAlert("Le workflow doit contenir au moins une étape.", "error");
+      return;
+    }
+
+    if (onUpdateTenants) {
+      onUpdateTenants(prev => prev.map(t => {
+        if (t.id === selectedConfigTenantId) {
+          return {
+            ...t,
+            workflowSteps: tempWorkflowSteps.map((s, index) => ({ ...s, order: index + 1 })),
+            showWorkflowFilter: tempShowWorkflowFilter
+          };
+        }
+        return t;
+      }));
+    }
+
+    addSystemLog('Sécurité', `Mise à jour de la sécurité et du workflow pour le tenant ID ${selectedConfigTenantId}. Filtre workflow: ${tempShowWorkflowFilter ? 'Activé' : 'Désactivé'}.`, 'Succès');
+    triggerAlert("Configuration de sécurité et de workflow mise à jour avec succès !", "success");
+    setShowWorkflowConfigModal(false);
+    setSelectedConfigTenantId(null);
+  };
+
+  const handleAddTempStep = () => {
+    const nextId = `step_${Date.now()}`;
+    const nextOrder = tempWorkflowSteps.length + 1;
+    setTempWorkflowSteps([
+      ...tempWorkflowSteps,
+      { id: nextId, name: '🆕 Nouvelle Étape', color: 'bg-indigo-100 text-indigo-800', order: nextOrder }
+    ]);
+  };
+
+  const handleUpdateTempStep = (id: string, field: 'name' | 'color', value: string) => {
+    setTempWorkflowSteps(tempWorkflowSteps.map(s => {
+      if (s.id === id) {
+        return { ...s, [field]: value };
+      }
+      return s;
+    }));
+  };
+
+  const handleDeleteTempStep = (id: string) => {
+    if (tempWorkflowSteps.length <= 1) {
+      triggerAlert("Impossible de supprimer la dernière étape.", "error");
+      return;
+    }
+    setTempWorkflowSteps(tempWorkflowSteps.filter(s => s.id !== id));
+  };
+
   // 10.3.4 - Backup / Restore & Portability
   const handleExportData = (companyId: string) => {
     if (!hasPermission('INFRA')) {
-      alert("Droits d'administration technique (INFRA) requis pour l'exportation des bases de données.");
+      triggerAlert("Droits d'administration technique (INFRA) requis pour l'exportation des bases de données.", "error");
       return;
     }
 
@@ -713,9 +942,159 @@ export default function SuperAdminModule({
     addSystemLog('Export Données', `Sauvegarde complète à la demande générée avec succès pour l'entreprise : ${company?.raisonSociale}`, 'Succès');
   };
 
+  const handleCreateClientBackup = (companyId: string) => {
+    if (!hasPermission('INFRA')) {
+      triggerAlert("Droits d'administration technique (INFRA) requis.", "error");
+      return;
+    }
+    if (!companyId) {
+      triggerAlert("Veuillez choisir une entreprise.", "warning");
+      return;
+    }
+    const company = entreprises.find(c => c.id === companyId);
+    if (!company) return;
+
+    const companyTenant = tenants.find(t => t.id === companyId);
+    const tenantEntities = companyTenant?.entities?.map((e: any) => e.id) || [];
+    
+    const companyUsers = users.filter(u => u.tenantId === companyId);
+    const companyRisks = risks.filter(r => r.entityId && (r.entityId.startsWith(companyId) || tenantEntities.includes(r.entityId)));
+    const companyActions = actions.filter(a => companyRisks.some(r => r.id === a.riskId));
+    const companyRules = rules.filter(ru => ru.entityId && (ru.entityId.startsWith(companyId) || tenantEntities.includes(ru.entityId)));
+    const companyAuditLogs = auditLogs.filter(l => l.tenantId === companyId);
+    const companyLicences = licences.filter(l => l.entrepriseId === companyId);
+
+    const backupPayload = {
+      companyId,
+      company,
+      tenantConfig: companyTenant,
+      users: companyUsers,
+      risks: companyRisks,
+      actions: companyActions,
+      rules: companyRules,
+      auditLogs: companyAuditLogs,
+      licences: companyLicences,
+    };
+
+    const newBackup = {
+      id: `bk_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      companyId,
+      companyName: company.raisonSociale,
+      timestamp: new Date().toLocaleString('fr-FR'),
+      sizeBytes: JSON.stringify(backupPayload).length,
+      data: backupPayload
+    };
+
+    const updated = [newBackup, ...clientBackups];
+    setClientBackups(updated);
+    localStorage.setItem('grc_client_backups_list', JSON.stringify(updated));
+    
+    addSystemLog('Backup Client', `Sauvegarde complète créée avec succès pour l'entreprise : ${company.raisonSociale}`, 'Succès');
+    triggerAlert(`Sauvegarde créée avec succès pour "${company.raisonSociale}" ! Elle est stockée de manière persistante.`, "success");
+  };
+
+  const handleRestoreClientBackup = (backupId: string) => {
+    if (!hasPermission('INFRA')) {
+      triggerAlert("Droits d'administration technique (INFRA) requis.", "error");
+      return;
+    }
+
+    const backup = clientBackups.find(b => b.id === backupId);
+    if (!backup) return;
+
+    if (!backup.data) {
+      triggerConfirm(
+        "Restauration de snapshot simulé",
+        `Attention : Restaurer ce snapshot simulé "${backup.companyName}" (${backup.timestamp}) va réinitialiser ses données de production par défaut. Voulez-vous continuer ?`,
+        () => {
+          addSystemLog('Restauration Système', `Données du tenant [${backup.companyName}] restaurées à partir du snapshot.`, 'Succès');
+          triggerAlert(`Les données pour "${backup.companyName}" ont été réinitialisées avec succès.`, "success");
+        }
+      );
+      return;
+    }
+
+    const { companyId, company, tenantConfig, users: bkUsers, risks: bkRisks, actions: bkActions, rules: bkRules, auditLogs: bkLogs, licences: bkLicences } = backup.data;
+
+    triggerConfirm(
+      "ATTENTION - CONFIRMATION DE RESTAURATION",
+      `ATTENTION DANGER : Vous allez écraser l'intégralité des données en production de l'entreprise "${backup.companyName}". Cette action est irréversible et écrasera tous les risques, règles et plans d'actions en cours. Êtes-vous sûr de vouloir continuer ?`,
+      () => {
+        if (onUpdateEntreprises && company) {
+          onUpdateEntreprises(prev => prev.map(e => e.id === companyId ? company : e));
+        }
+        if (onUpdateTenants && tenantConfig) {
+          onUpdateTenants(prev => prev.map(t => t.id === companyId ? tenantConfig : t));
+        }
+        if (onUpdateUsers && bkUsers) {
+          onUpdateUsers(prev => [
+            ...prev.filter(u => u.tenantId !== companyId),
+            ...bkUsers
+          ]);
+        }
+        if (onUpdateRisks && bkRisks) {
+          const tenantEntities = tenantConfig?.entities?.map((e: any) => e.id) || [];
+          onUpdateRisks(prev => [
+            ...prev.filter(r => !tenantEntities.includes(r.entityId) && !r.entityId.startsWith(companyId)),
+            ...bkRisks
+          ]);
+        }
+        if (onUpdateActions && bkActions) {
+          onUpdateActions(prev => [
+            ...prev.filter(a => !bkActions.some((ba: any) => ba.id === a.id)),
+            ...bkActions
+          ]);
+        }
+        if (onUpdateRules && bkRules) {
+          const tenantEntities = tenantConfig?.entities?.map((e: any) => e.id) || [];
+          onUpdateRules(prev => [
+            ...prev.filter(ru => !tenantEntities.includes(ru.entityId) && !ru.entityId.startsWith(companyId)),
+            ...bkRules
+          ]);
+        }
+        if (onUpdateAuditLogs && bkLogs) {
+          onUpdateAuditLogs(prev => [
+            ...prev.filter(l => l.tenantId !== companyId),
+            ...bkLogs
+          ]);
+        }
+        if (onUpdateLicences && bkLicences) {
+          onUpdateLicences(prev => [
+            ...prev.filter(l => l.entrepriseId !== companyId),
+            ...bkLicences
+          ]);
+        }
+
+        addSystemLog('Restauration Système', `Données restaurées avec succès pour l'entreprise : ${backup.companyName}`, 'Succès');
+        triggerAlert(`Restauration complète effectuée avec succès pour l'entreprise "${backup.companyName}". Toutes les configurations GRC et données associées ont été restaurées.`, "success");
+      }
+    );
+  };
+
+  const handleDeleteClientBackup = (backupId: string) => {
+    if (!hasPermission('INFRA')) {
+      triggerAlert("Droits d'administration technique (INFRA) requis.", "error");
+      return;
+    }
+    const backup = clientBackups.find(b => b.id === backupId);
+    if (!backup) return;
+
+    triggerConfirm(
+      "Supprimer définitivement la sauvegarde",
+      `Voulez-vous supprimer définitivement ce snapshot pour "${backup.companyName}" du ${backup.timestamp} ?`,
+      () => {
+        const updated = clientBackups.filter(b => b.id !== backupId);
+        setClientBackups(updated);
+        localStorage.setItem('grc_client_backups_list', JSON.stringify(updated));
+        addSystemLog('Suppression Backup', `Snapshot du ${backup.timestamp} supprimé pour l'entreprise ${backup.companyName}`, 'Succès');
+        triggerAlert("Snapshot supprimé de l'historique.", "success");
+      }
+    );
+  };
+
   const handleSimulateRestore = (companyId: string) => {
     if (!hasPermission('INFRA')) {
-      alert("Droits d'administration technique (INFRA) requis.");
+      triggerAlert("Droits d'administration technique (INFRA) requis.", "error");
       return;
     }
     const company = entreprises.find(c => c.id === companyId);
@@ -725,20 +1104,20 @@ export default function SuperAdminModule({
 
   const handleConfirmRestore = () => {
     if (doubleValidationCode !== 'RESTAURER') {
-      alert('Veuillez saisir "RESTAURER" pour confirmer l\'écrasement des données de production.');
+      triggerAlert('Veuillez saisir "RESTAURER" pour confirmer l\'écrasement des données de production.', "warning");
       return;
     }
 
     // Simulate restoring from a backup
     addSystemLog('Restauration Système', `Données du tenant [${doubleValidationTarget?.name}] restaurées à partir du dernier snapshot planifié.`, 'Succès');
-    alert(`Les données de production pour l'entreprise "${doubleValidationTarget?.name}" ont été restaurées avec succès.`);
+    triggerAlert(`Les données de production pour l'entreprise "${doubleValidationTarget?.name}" ont été restaurées avec succès.`, "success");
     setDoubleValidationTarget(null);
   };
 
   // 10.3.5 - Canary Update deployment
   const handleTriggerCanaryUpdate = () => {
     if (!hasPermission('INFRA')) {
-      alert("Droits d'administration technique (INFRA) requis.");
+      triggerAlert("Droits d'administration technique (INFRA) requis.", "error");
       return;
     }
 
@@ -763,12 +1142,12 @@ export default function SuperAdminModule({
   const handleActivateDiagnostic = (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasPermission('SUPPORT')) {
-      alert("Droits de diagnostic et de support requis.");
+      triggerAlert("Droits de diagnostic et de support requis.", "error");
       return;
     }
 
     if (!diagnosticTenantId || !diagnosticReason.trim()) {
-      alert("Veuillez sélectionner une entreprise et spécifier le motif du diagnostic.");
+      triggerAlert("Veuillez sélectionner une entreprise et spécifier le motif du diagnostic.", "warning");
       return;
     }
 
@@ -1353,11 +1732,12 @@ export default function SuperAdminModule({
                             {ent.statutCompte === 'Actif' ? 'Actif' : ent.statutCompte === 'Essai' ? 'Essai' : 'Suspendu'}
                           </span>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-[11px] text-slate-400">
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-1 text-[11px] text-slate-400">
                           <p>Secteur : <span className="text-slate-300 font-medium">{ent.secteurActivite}</span></p>
                           <p>Hébergement : <span className="text-slate-300 font-medium font-mono text-[10px]">{ent.regionHebergement}</span></p>
                           <p>Création : <span className="text-slate-300 font-medium">{ent.dateCreationCompte}</span></p>
                           <p>Contact : <span className="text-slate-300 font-medium">{ent.idContactPrincipal}</span></p>
+                          <p>Succursales Max : <span className="text-amber-400 font-bold font-mono">{ent.maxSuccursales || 5}</span></p>
                         </div>
                       </div>
 
@@ -1374,6 +1754,14 @@ export default function SuperAdminModule({
                         <div className="flex items-center space-x-1">
                           {hasPermission('COMMERCIAL') && (
                             <>
+                              <button
+                                onClick={() => handleOpenEditCompany(ent)}
+                                className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded text-[10px] font-bold transition flex items-center space-x-1"
+                                title="Modifier l'entreprise et ses limites"
+                              >
+                                ✏️ Modifier
+                              </button>
+
                               {ent.statutCompte === 'Suspendu' ? (
                                 <button
                                   onClick={() => handleUpdateCompanyStatut(ent.id, 'Actif')}
@@ -1391,6 +1779,15 @@ export default function SuperAdminModule({
                                   Suspendre
                                 </button>
                               )}
+
+                              <button
+                                onClick={() => handleOpenWorkflowModal(ent.id)}
+                                className="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 px-2.5 py-1.5 rounded text-[10px] font-bold transition flex items-center space-x-1"
+                                title="Gérer la sécurité et le workflow"
+                              >
+                                <Settings className="w-3.5 h-3.5" />
+                                <span>Sécurité & Workflow</span>
+                              </button>
                               
                               <button
                                 onClick={() => handleDeleteCompanyRequest(ent)}
@@ -1701,7 +2098,7 @@ export default function SuperAdminModule({
                               onUpdateLicences(prev => prev.map(l => l.id === lic.id ? updated : l));
                               
                               const newHist: HistoriqueLicence = {
-                                id: `hist_${Date.now()}`,
+                                id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
                                 licenceId: lic.id,
                                 typeChangement: 'Renouvellement',
                                 dateChangement: new Date().toISOString().split('T')[0],
@@ -1771,22 +2168,63 @@ export default function SuperAdminModule({
 
         {/* ==================== TAB: BACKUPS & PORTABILITY ==================== */}
         {activeTab === 'backups' && (
-          <div className="space-y-6 animate-fade-in">
+          <div className="space-y-6 animate-fade-in text-xs text-slate-300">
+            {/* Explanatory Banner */}
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg space-y-2">
+              <div className="flex items-center space-x-2 text-indigo-400">
+                <Database className="w-5 h-5 text-indigo-400" />
+                <h3 className="font-bold text-white text-sm">Gestion des Sauvegardes par Organisation (Supabase Multi-Tenant)</h3>
+              </div>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                Puisque la plateforme utilise une base de données unique partitionnée (multi-tenant), les sauvegardes et restaurations d'une organisation spécifique s'effectuent par filtrage relationnel strict. Vous pouvez créer un snapshot des données d'un client à un instant T et le restaurer ultérieurement sans affecter les autres entreprises hébergées sur le même projet Supabase.
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Export Panel */}
+              {/* Live Backup Creator Panel */}
               <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg space-y-4">
                 <div className="flex items-center space-x-2 text-indigo-400 border-b border-slate-800 pb-3">
                   <Download className="w-5 h-5" />
-                  <h3 className="font-bold text-white text-sm">Portabilité totale : Export SQL / JSON (Section 10.3.4)</h3>
+                  <h3 className="font-bold text-white text-sm">Création de Sauvegarde à la demande</h3>
                 </div>
 
                 <p className="text-slate-400 text-[11px] leading-relaxed">
-                  Conformément au principe de réversibilité totale, vous pouvez exporter à la demande l'intégralité des configurations et données d'un client dans un format JSON structuré indépendant.
+                  Générez instantanément un snapshot persistant contenant toutes les informations d'un client (risques, actions, règles, logs d'audit et licences) pour des fins de conformité ou de sécurité.
                 </p>
 
                 <div className="space-y-3 pt-2">
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sélectionner le Client à exporter :</label>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Sélectionner l'organisation à sauvegarder :</label>
+                    <div className="flex gap-2">
+                      <select
+                        id="backup-company-select"
+                        className="flex-1 bg-slate-950 border border-slate-800 rounded text-xs px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>-- Choisir une entreprise --</option>
+                        {entreprises.map(c => (
+                          <option key={c.id} value={c.id}>{c.raisonSociale}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => {
+                          const val = (document.getElementById('backup-company-select') as HTMLSelectElement).value;
+                          if (val) {
+                            handleCreateClientBackup(val);
+                          } else {
+                            triggerAlert("Veuillez d'abord sélectionner une entreprise.", "warning");
+                          }
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded text-xs transition cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Sauvegarder
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-850 space-y-2">
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Export manuel JSON (Réversibilité totale) :</label>
                     <select
                       id="export-company-select"
                       className="w-full bg-slate-950 border border-slate-800 rounded text-xs px-3 py-2 text-white focus:outline-none"
@@ -1803,11 +2241,11 @@ export default function SuperAdminModule({
                   {exportData && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">Dump Archive JSON généré :</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">Archive JSON générée :</span>
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(exportData);
-                            alert("Archive copiée dans le presse-papiers !");
+                            triggerAlert("Archive copiée dans le presse-papiers ! Vous pouvez la coller dans un fichier.", "success");
                           }}
                           className="text-indigo-400 hover:text-indigo-300 font-bold text-[10px] tracking-wide"
                         >
@@ -1817,8 +2255,8 @@ export default function SuperAdminModule({
                       <textarea
                         readOnly
                         value={exportData}
-                        rows={10}
-                        className="w-full bg-slate-950 border border-slate-800 rounded p-3 font-mono text-[10px] text-indigo-300 focus:outline-none focus:border-indigo-500"
+                        rows={6}
+                        className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 font-mono text-[10px] text-indigo-300 focus:outline-none"
                       />
                     </div>
                   )}
@@ -1828,21 +2266,21 @@ export default function SuperAdminModule({
               {/* Restore Panel */}
               <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg space-y-4">
                 <div className="flex items-center space-x-2 text-amber-500 border-b border-slate-800 pb-3">
-                  <Upload className="w-5 h-5" />
-                  <h3 className="font-bold text-white text-sm">Procédure de Restauration de production</h3>
+                  <Upload className="w-5 h-5 animate-pulse" />
+                  <h3 className="font-bold text-white text-sm">Restauration isolée d'une organisation</h3>
                 </div>
 
                 <p className="text-slate-400 text-[11px] leading-relaxed">
-                  Restaurez les données d'un client à partir d'une sauvegarde planifiée ou d'un snapshot technique. <strong>Avertissement :</strong> Cette action est irréversible et écrasera toutes les données en production du client sélectionné.
+                  Restaurez instantanément l'état d'un client à partir de la liste des snapshots ci-dessous. <strong>Attention :</strong> La restauration écrase uniquement les données du client concerné, laissant les autres organisations intactes.
                 </p>
 
                 <div className="space-y-4 pt-2">
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sélectionner le Client à restaurer :</label>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Restauration rapide via client :</label>
                     <div className="flex gap-2">
                       <select
                         id="restore-company-select"
-                        className="flex-1 bg-slate-950 border border-slate-800 rounded text-xs px-3 py-2 text-white focus:outline-none"
+                        className="flex-1 bg-slate-950 border border-slate-800 rounded text-xs px-3 py-2 text-white focus:outline-none focus:border-amber-500"
                         defaultValue=""
                       >
                         <option value="" disabled>-- Choisir une entreprise --</option>
@@ -1853,27 +2291,122 @@ export default function SuperAdminModule({
                       <button
                         onClick={() => {
                           const val = (document.getElementById('restore-company-select') as HTMLSelectElement).value;
-                          if (val) handleSimulateRestore(val);
+                          if (val) {
+                            handleSimulateRestore(val);
+                          } else {
+                            triggerAlert("Veuillez d'abord sélectionner une entreprise.", "warning");
+                          }
                         }}
-                        className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-2 rounded text-xs"
+                        className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2 rounded text-xs cursor-pointer transition"
                       >
-                        Restaurer
+                        Restaurer simulation
                       </button>
                     </div>
                   </div>
 
                   <div className="border border-slate-800 bg-slate-950/50 p-3 rounded-lg text-[11px] text-slate-400 space-y-1">
-                    <p className="font-semibold text-white">Dernières Sauvegardes Automatiques Système :</p>
+                    <p className="font-semibold text-white text-[11px]">Planification des Backups Système Automatiques :</p>
                     <div className="flex items-center justify-between py-1 border-b border-slate-900 font-mono text-[10px]">
-                      <span>Snapshot_Hourly_0400.sql</span>
-                      <span className="text-emerald-400">Aujourd'hui, 04:00 (Succès)</span>
+                      <span>Snapshot_Hourly_0400.sql (Global)</span>
+                      <span className="text-emerald-400 font-bold">Aujourd'hui, 04:00 (Actif)</span>
                     </div>
                     <div className="flex items-center justify-between py-1 border-b border-slate-900 font-mono text-[10px]">
-                      <span>Snapshot_Daily_Yesterday.sql</span>
-                      <span className="text-emerald-400">Hier, 00:00 (Succès)</span>
+                      <span>Snapshot_Daily_Yesterday.sql (Global)</span>
+                      <span className="text-emerald-400 font-bold">Hier, 00:00 (Actif)</span>
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Snapshot Management List */}
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <Database className="w-5 h-5 text-amber-500" />
+                  <h3 className="font-bold text-white text-sm">Liste des Snapshots Applicatifs Disponibles</h3>
+                </div>
+                <span className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold px-2 py-0.5 rounded text-[10px]">
+                  {clientBackups.length} Snapshots
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400">
+                      <th className="py-2.5">Date de sauvegarde</th>
+                      <th className="py-2.5">Organisation</th>
+                      <th className="py-2.5">Statut de la base</th>
+                      <th className="py-2.5">Taille</th>
+                      <th className="py-2.5 text-right">Actions de Restauration</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-850">
+                    {clientBackups.map((backup) => (
+                      <tr key={backup.id} className="hover:bg-slate-850/20">
+                        <td className="py-3 font-semibold text-slate-200 flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-slate-500" />
+                          {backup.timestamp}
+                        </td>
+                        <td className="py-3">
+                          <span className="text-indigo-400 font-bold">{backup.companyName}</span>
+                        </td>
+                        <td className="py-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            backup.data ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            {backup.data ? 'SAUVEGARDE RÉELLE' : 'SIMULÉ / PRÉ-REQUIS'}
+                          </span>
+                        </td>
+                        <td className="py-3 font-mono text-[10px] text-slate-400">
+                          {(backup.sizeBytes / 1024).toFixed(2)} Ko
+                        </td>
+                        <td className="py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleRestoreClientBackup(backup.id)}
+                              className="px-2.5 py-1 bg-amber-600/25 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/25 font-bold rounded text-[10px] transition cursor-pointer"
+                            >
+                              Restaurer
+                            </button>
+                            {backup.data && (
+                              <button
+                                onClick={() => {
+                                  const blob = new Blob([JSON.stringify(backup.data, null, 2)], { type: 'application/json' });
+                                  const url = URL.createObjectURL(blob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = `GRC_Backup_${backup.companyName.replace(/\s+/g, '_')}_${backup.timestamp.replace(/[\/,\s:]/g, '_')}.json`;
+                                  link.click();
+                                  URL.revokeObjectURL(url);
+                                }}
+                                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded text-[10px] transition cursor-pointer"
+                                title="Télécharger le fichier JSON de sauvegarde"
+                              >
+                                Télécharger
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteClientBackup(backup.id)}
+                              className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition cursor-pointer"
+                              title="Supprimer la sauvegarde"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {clientBackups.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-slate-500 font-medium">
+                          Aucun snapshot disponible. Sélectionnez un client ci-dessus pour générer une sauvegarde.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -2383,6 +2916,18 @@ export default function SuperAdminModule({
                   />
                 </div>
 
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Plafond succursales max (Facturable)</label>
+                  <input 
+                    type="number"
+                    min={1}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={newCompany.maxSuccursales}
+                    onChange={(e) => setNewCompany({...newCompany, maxSuccursales: Number(e.target.value)})}
+                  />
+                </div>
+
                 <div className="space-y-1 col-span-2">
                   <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Contact Administrateur Client</label>
                   <input 
@@ -2431,6 +2976,115 @@ export default function SuperAdminModule({
                   className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded"
                 >
                   Créer et Activer le compte
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== MODAL: EDIT COMPANY ==================== */}
+      {showEditCompanyModal && editingCompany && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 animate-fade-in">
+          <div className="max-w-lg w-full bg-slate-900 border border-slate-850 rounded-lg shadow-2xl overflow-hidden">
+            <div className="bg-slate-850 px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+              <h3 className="font-bold text-white text-sm">Modifier l'Entreprise Cliente</h3>
+              <button onClick={() => { setShowEditCompanyModal(false); setEditingCompany(null); }} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateCompany} className="p-5 space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1 col-span-2">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Raison Sociale de l'entreprise</label>
+                  <input 
+                    type="text"
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                    value={editingCompany.raisonSociale}
+                    onChange={(e) => setEditingCompany({...editingCompany, raisonSociale: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Secteur d'Activité</label>
+                  <select
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={editingCompany.secteurActivite}
+                    onChange={(e) => setEditingCompany({...editingCompany, secteurActivite: e.target.value})}
+                  >
+                    <option value="Services Financiers">Services Financiers</option>
+                    <option value="Aéronautique & Défense">Aéronautique & Défense</option>
+                    <option value="Pharmacie & Santé">Pharmacie & Santé</option>
+                    <option value="Grande Distribution">Grande Distribution</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Région d'Hébergement</label>
+                  <select
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={editingCompany.regionHebergement}
+                    onChange={(e) => setEditingCompany({...editingCompany, regionHebergement: e.target.value})}
+                  >
+                    <option value="Europe (Paris)">Europe (Paris)</option>
+                    <option value="Europe (Francfort)">Europe (Francfort)</option>
+                    <option value="US East (N. Virginia)">US East (N. Virginia)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1 col-span-2">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Contact Principal</label>
+                  <input 
+                    type="text"
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={editingCompany.idContactPrincipal}
+                    onChange={(e) => setEditingCompany({...editingCompany, idContactPrincipal: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Statut Compte</label>
+                  <select
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={editingCompany.statutCompte}
+                    onChange={(e) => setEditingCompany({...editingCompany, statutCompte: e.target.value as any})}
+                  >
+                    <option value="Essai">Essai</option>
+                    <option value="Actif">Actif</option>
+                    <option value="Suspendu">Suspendu</option>
+                    <option value="Résilié">Résilié</option>
+                    <option value="Archivé">Archivé</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Plafond succursales max (Facturable)</label>
+                  <input 
+                    type="number"
+                    min={1}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-bold"
+                    value={editingCompany.maxSuccursales || 5}
+                    onChange={(e) => setEditingCompany({...editingCompany, maxSuccursales: Number(e.target.value)})}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditCompanyModal(false); setEditingCompany(null); }}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold px-4 py-2 rounded"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded"
+                >
+                  Sauvegarder les modifications
                 </button>
               </div>
             </form>
@@ -2530,6 +3184,125 @@ export default function SuperAdminModule({
         </div>
       )}
 
+      {/* ==================== MODAL: SECURITY & WORKFLOW CONFIGURATION ==================== */}
+      {showWorkflowConfigModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 animate-fade-in overflow-y-auto">
+          <div className="max-w-xl w-full bg-slate-900 border border-slate-800 rounded-lg shadow-2xl overflow-hidden my-8">
+            <div className="bg-slate-850 px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                <h3 className="font-bold text-white text-sm">Sécurité & Configuration du Workflow</h3>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowWorkflowConfigModal(false);
+                  setSelectedConfigTenantId(null);
+                }} 
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveWorkflowConfig} className="p-5 space-y-6 text-xs text-slate-300">
+              <div className="bg-slate-950/60 p-4 rounded-lg border border-slate-850 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-white text-xs">Visibilité du filtre de workflow client</h4>
+                    <p className="text-slate-500 text-[10px] mt-0.5">Si désactivé, le filtre "Étape Workflow" dans la cartographie des risques est masqué pour l'ensemble des utilisateurs de cette entreprise cliente.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={tempShowWorkflowFilter}
+                      onChange={(e) => setTempShowWorkflowFilter(e.target.checked)}
+                    />
+                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-300 after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 peer-checked:after:bg-white"></div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <h4 className="font-bold text-white text-xs">Étapes du Workflow de Validation</h4>
+                  <button
+                    type="button"
+                    onClick={handleAddTempStep}
+                    className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded text-[10px] transition-colors"
+                  >
+                    + Ajouter une étape
+                  </button>
+                </div>
+
+                <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                  {tempWorkflowSteps.map((step, idx) => (
+                    <div key={step.id} className="p-3 bg-slate-950 rounded border border-slate-850 flex items-center gap-3">
+                      <span className="font-mono text-slate-500 font-bold text-[10px] w-4 shrink-0 font-bold">#{idx + 1}</span>
+                      
+                      <div className="flex-1 min-w-0">
+                        <input 
+                          type="text" 
+                          required
+                          value={step.name}
+                          onChange={(e) => handleUpdateTempStep(step.id, 'name', e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 p-1 px-2 rounded text-white text-xs focus:outline-none focus:border-indigo-500 font-semibold"
+                          placeholder="Nom de l'étape (ex. ✅ Validé)"
+                        />
+                      </div>
+
+                      <div className="w-36 shrink-0">
+                        <select
+                          value={step.color}
+                          onChange={(e) => handleUpdateTempStep(step.id, 'color', e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 p-1 px-1.5 rounded text-slate-300 text-xs focus:outline-none"
+                        >
+                          <option value="bg-gray-100 text-gray-800">Gris discret</option>
+                          <option value="bg-blue-100 text-blue-800">Bleu info</option>
+                          <option value="bg-amber-100 text-amber-800">Orange attente</option>
+                          <option value="bg-green-100 text-green-800">Vert validé</option>
+                          <option value="bg-rose-100 text-rose-800">Rouge alerte</option>
+                          <option value="bg-indigo-100 text-indigo-800">Indigo prime</option>
+                          <option value="bg-purple-100 text-purple-800">Violet thématique</option>
+                        </select>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTempStep(step.id)}
+                        className="p-1 text-slate-500 hover:text-red-400 rounded hover:bg-red-500/10 shrink-0"
+                        title="Supprimer l'étape"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowWorkflowConfigModal(false);
+                    setSelectedConfigTenantId(null);
+                  }}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold px-4 py-2 rounded"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded shadow-md"
+                >
+                  Enregistrer les modifications
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ==================== MODAL: DOUBLE VALIDATION FOR SENSITIVE ACTIONS ==================== */}
       {doubleValidationTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 animate-fade-in">
@@ -2611,6 +3384,93 @@ export default function SuperAdminModule({
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== CUSTOM DIALOG: ALERT ==================== */}
+      {customAlert && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 animate-fade-in">
+          <div className="max-w-md w-full bg-slate-900 border border-slate-850 rounded-lg shadow-2xl p-6 text-xs text-slate-300 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className={`p-2 rounded-full shrink-0 ${
+                customAlert.type === 'success' ? 'bg-emerald-500/15 text-emerald-400' :
+                customAlert.type === 'error' ? 'bg-red-500/15 text-red-400' :
+                customAlert.type === 'warning' ? 'bg-amber-500/15 text-amber-400' :
+                'bg-indigo-500/15 text-indigo-400'
+              }`}>
+                {customAlert.type === 'success' ? (
+                  <Check className="w-5 h-5" />
+                ) : customAlert.type === 'error' ? (
+                  <AlertTriangle className="w-5 h-5" />
+                ) : customAlert.type === 'warning' ? (
+                  <AlertCircle className="w-5 h-5" />
+                ) : (
+                  <CheckCircle className="w-5 h-5" />
+                )}
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-bold text-white text-sm">
+                  {customAlert.type === 'success' ? 'Opération réussie' :
+                   customAlert.type === 'error' ? 'Erreur rencontrée' :
+                   customAlert.type === 'warning' ? 'Avertissement' :
+                   'Information'}
+                </h4>
+                <p className="leading-relaxed text-slate-300 text-xs">
+                  {customAlert.message}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end pt-2 border-t border-slate-850">
+              <button
+                type="button"
+                onClick={() => setCustomAlert(null)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded transition text-xs cursor-pointer"
+              >
+                D'accord
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== CUSTOM DIALOG: CONFIRM ==================== */}
+      {customConfirm && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-slate-950/80 animate-fade-in">
+          <div className="max-w-md w-full bg-slate-900 border border-slate-850 rounded-lg shadow-2xl p-6 text-xs text-slate-300 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-amber-500/15 text-amber-400 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-bold text-white text-sm">
+                  {customConfirm.title}
+                </h4>
+                <p className="leading-relaxed text-slate-300 text-xs">
+                  {customConfirm.message}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-850">
+              <button
+                type="button"
+                onClick={() => setCustomConfirm(null)}
+                className="bg-slate-850 hover:bg-slate-800 text-slate-300 font-semibold px-4 py-2 rounded text-xs cursor-pointer transition"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const onConf = customConfirm.onConfirm;
+                  setCustomConfirm(null);
+                  onConf();
+                }}
+                className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2 rounded text-xs cursor-pointer transition"
+              >
+                Confirmer
+              </button>
             </div>
           </div>
         </div>
