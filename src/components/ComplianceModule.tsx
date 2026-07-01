@@ -205,7 +205,7 @@ export default function ComplianceModule({
           <div className="space-y-1">
             <span className="text-[10px] text-slate-400 font-bold uppercase block">Impact Financier des Incidents</span>
             <span className="text-2xl font-black text-rose-600 font-mono">
-              {totalFinancialImpact.toLocaleString('fr-FR')} €
+              {totalFinancialImpact.toLocaleString('fr-FR')} FCFA
             </span>
             <p className="text-[10px] text-slate-500">
               {incidents.length} incidents réglementaires déclarés
@@ -392,7 +392,7 @@ export default function ComplianceModule({
                     <p className="text-slate-450 text-[9.5px] mt-1 leading-normal">{inc.description}</p>
                   </td>
                   <td className="py-3 px-3 border border-slate-200 text-right font-mono font-bold text-rose-600">
-                    {inc.impactFinancier ? `${inc.impactFinancier.toLocaleString('fr-FR')} €` : 'Néant'}
+                    {inc.impactFinancier ? `${inc.impactFinancier.toLocaleString('fr-FR')} FCFA` : 'Néant'}
                   </td>
                   <td className="py-3 px-3 border border-slate-200 italic text-slate-600 leading-normal">
                     {inc.mesuresPrises}
@@ -587,7 +587,7 @@ export default function ComplianceModule({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] text-slate-400 font-bold uppercase font-bold">Impact financier direct / amendes potentielles (€)</label>
+                <label className="text-[10px] text-slate-400 font-bold uppercase font-bold">Impact financier direct / amendes potentielles (FCFA)</label>
                 <input
                   type="number"
                   required

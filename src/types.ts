@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type Role = 'Analyste' | 'Responsable' | 'Risk Manager' | 'Direction' | 'SuperAdmin';
+export type Role = 'Analyste' | 'Responsable' | 'Risk Manager' | 'Direction' | 'SuperAdmin' | 'Administrateur';
 
 export interface User {
   id: string;
@@ -13,6 +13,9 @@ export interface User {
   avatar?: string;
   password?: string;
   tenantId?: string;
+  roles?: Role[];
+  isActive?: boolean;
+  allowedModules?: string[];
 }
 
 export interface OrgEntity {
@@ -254,13 +257,33 @@ export interface EntrepriseCliente {
   id: string;
   raisonSociale: string;
   secteurActivite: string;
+  specificationSecteur?: string; // Spécification descriptive sur l'activité
   dateCreationCompte: string;
   statutCompte: 'Essai' | 'Actif' | 'Suspendu' | 'Résilié' | 'Archivé';
   regionHebergement: string;
   idContactPrincipal: string; // Linked to a user ID or contact name
   maxSuccursales?: number; // Authorized subsidiaries/succursales the client can add
+  maxDirections?: number;
+  maxDepartements?: number;
+  maxServices?: number;
+  maxSitesLocaux?: number;
+  maxFiliales?: number;
   succursalesActives?: boolean; // Section 10.2.2 Option active/inactive
   depassementQuotaMode?: 'blocage' | 'inactif'; // Section 10.2.2 Gestion dépassement
+  
+  // Extra Company details
+  pays?: string;
+  ville?: string;
+  telephone?: string;
+  email?: string;
+  siteWeb?: string;
+
+  // Contact Administrateur details
+  contactNom?: string;
+  contactPrenom?: string;
+  contactTitre?: string;
+  contactTelephone?: string;
+  contactEmail?: string;
 }
 
 export interface Licence {
@@ -289,4 +312,14 @@ export interface HistoriqueLicence {
 }
 
 export type SuperAdminRole = 'SuperAdministrateur technique' | 'SuperAdministrateur commercial / contractuel' | 'Support niveau 2';
+
+export interface SessionExercice {
+  id: string;
+  annee: number;
+  dateDebut: string;
+  dateFin: string;
+  statut: 'Ouverte' | 'Clôturée';
+  dateCloture?: string;
+  bilanAnnuel?: string;
+}
 

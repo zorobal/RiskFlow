@@ -229,11 +229,11 @@ export default function EvaluationModule({
                 </div>
                 <div className="flex justify-between items-center text-[10px] pt-1 border-t border-slate-200">
                   <span className="font-semibold text-slate-600">Perte brute estimée :</span>
-                  <span className="font-bold text-slate-700 font-mono">{rawFinancialLoss.toLocaleString()} €</span>
+                  <span className="font-bold text-slate-700 font-mono">{rawFinancialLoss.toLocaleString()} FCFA</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-bold text-indigo-600">Perte résiduelle nette :</span>
-                  <span className="font-black text-emerald-600 font-mono">{estimatedResidualLoss.toLocaleString()} €</span>
+                  <span className="font-black text-emerald-600 font-mono">{estimatedResidualLoss.toLocaleString()} FCFA</span>
                 </div>
               </div>
             </div>

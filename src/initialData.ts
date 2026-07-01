@@ -20,7 +20,8 @@ import {
   ComplianceIncident,
   EntrepriseCliente,
   Licence,
-  HistoriqueLicence
+  HistoriqueLicence,
+  SessionExercice
 } from './types';
 
 // Preset Users
@@ -718,6 +719,25 @@ export const PRESET_HISTORIQUE_LICENCES: HistoriqueLicence[] = [
     dateChangement: '2026-05-15',
     effectuePar: 'SuperAdmin Commercial',
     details: 'Compte suspendu temporairement pour cause de défaut de paiement récurrent.'
+  }
+];
+
+export const PRESET_SESSIONS: SessionExercice[] = [
+  {
+    id: 'sess1',
+    annee: 2025,
+    dateDebut: '2025-01-01',
+    dateFin: '2025-12-31',
+    statut: 'Clôturée',
+    dateCloture: '2025-12-28',
+    bilanAnnuel: "Bilan d'exercice 2025 : Clôture effectuée avec 85% des actions de traitement de risques clôturées. Le niveau d'exposition globale aux risques a diminué de 12%."
+  },
+  {
+    id: 'sess2',
+    annee: 2026,
+    dateDebut: '2026-01-01',
+    dateFin: '2026-12-31',
+    statut: 'Ouverte'
   }
 ];
 

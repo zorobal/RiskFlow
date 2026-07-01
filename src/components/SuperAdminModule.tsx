@@ -34,7 +34,9 @@ import {
   Code,
   Copy,
   Check,
-  AlertCircle
+  AlertCircle,
+  Briefcase,
+  MapPin
 } from 'lucide-react';
 import { 
   EntrepriseCliente, 
@@ -135,7 +137,44 @@ export default function SuperAdminModule({
   onRestoreTenantData
 }: SuperAdminModuleProps) {
   // Navigation tabs in SuperAdmin space
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'tenants' | 'licences' | 'users' | 'backups' | 'supervision' | 'support' | 'supabase'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'tenants' | 'licences' | 'users' | 'backups' | 'supervision' | 'support' | 'supabase' | 'settings'>('dashboard');
+
+  // Secteurs d'activité customisables
+  const [sectors, setSectors] = useState<string[]>(() => {
+    const saved = localStorage.getItem('grc_superadmin_sectors');
+    return saved ? JSON.parse(saved) : [
+      "🌾 Agriculture et Agro-industrie",
+      "🏭 Industrie et Manufacturier",
+      "🛒 Commerce et Distribution",
+      "🍽️ Restauration et Hôtellerie",
+      "🏦 Banque Finance et Microfinance",
+      "💻 Technologies de l'Information",
+      "🏥 Pharmacie & Santé",
+      "✈️ Aéronautique & Défense"
+    ];
+  });
+
+  // Régions d'hébergement customisables
+  const [regions, setRegions] = useState<string[]>(() => {
+    const saved = localStorage.getItem('grc_superadmin_regions');
+    return saved ? JSON.parse(saved) : [
+      "Europe (Paris)",
+      "Europe (Francfort)",
+      "Afrique (Rabat)",
+      "Afrique (Johannesbourg)",
+      "Afrique de l'Ouest (Dakar)",
+      "Afrique Centrale (Douala)",
+      "US East (N. Virginia)"
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('grc_superadmin_sectors', JSON.stringify(sectors));
+  }, [sectors]);
+
+  useEffect(() => {
+    localStorage.setItem('grc_superadmin_regions', JSON.stringify(regions));
+  }, [regions]);
   
   // SuperAdmin Role State
   const [currentRole, setCurrentRole] = useState<SuperAdminRole>('SuperAdministrateur technique');
@@ -356,13 +395,31 @@ export default function SuperAdminModule({
   // New Company form
   const [newCompany, setNewCompany] = useState({
     raisonSociale: '',
-    secteurActivite: 'Services Financiers',
+    secteurActivite: '🌾 Agriculture et Agro-industrie',
+    specificationSecteur: '',
     regionHebergement: 'Europe (Paris)',
     contactPrincipal: '',
     typeAbonnement: 'Mensuel' as 'Mensuel' | 'Annuel' | 'Sur devis',
     maxUsers: 10,
     maxSuccursales: 5,
-    modules: ['Cartographie', 'Plans d\'action'] as ('Cartographie' | 'Plans d\'action' | 'Audit' | 'Conformité' | 'Reporting')[]
+    maxDirections: 5,
+    maxDepartements: 10,
+    maxServices: 15,
+    maxSitesLocaux: 5,
+    maxFiliales: 5,
+    modules: ['Cartographie', 'Plans d\'action'] as ('Cartographie' | 'Plans d\'action' | 'Audit' | 'Conformité' | 'Reporting')[],
+    // extra company details
+    pays: 'Cameroun',
+    ville: 'Yaoundé',
+    telephone: '',
+    email: '',
+    siteWeb: '',
+    // contact admin details
+    contactNom: '',
+    contactPrenom: '',
+    contactTitre: 'Directeur Général',
+    contactTelephone: '',
+    contactEmail: ''
   });
 
   const [showEditCompanyModal, setShowEditCompanyModal] = useState(false);
@@ -577,11 +634,29 @@ export default function SuperAdminModule({
       id: companyId,
       raisonSociale: newCompany.raisonSociale,
       secteurActivite: newCompany.secteurActivite,
+      specificationSecteur: newCompany.specificationSecteur,
       dateCreationCompte: new Date().toISOString().split('T')[0],
       statutCompte: 'Essai',
       regionHebergement: newCompany.regionHebergement,
-      idContactPrincipal: newCompany.contactPrincipal || 'Administrateur Client',
-      maxSuccursales: Number(newCompany.maxSuccursales || 5)
+      idContactPrincipal: `${newCompany.contactPrenom} ${newCompany.contactNom} (${newCompany.contactEmail})`,
+      maxSuccursales: Number(newCompany.maxSuccursales || 5),
+      maxDirections: Number(newCompany.maxDirections || 5),
+      maxDepartements: Number(newCompany.maxDepartements || 10),
+      maxServices: Number(newCompany.maxServices || 15),
+      maxSitesLocaux: Number(newCompany.maxSitesLocaux || 5),
+      maxFiliales: Number(newCompany.maxFiliales || 5),
+
+      pays: newCompany.pays,
+      ville: newCompany.ville,
+      telephone: newCompany.telephone,
+      email: newCompany.email,
+      siteWeb: newCompany.siteWeb,
+
+      contactNom: newCompany.contactNom,
+      contactPrenom: newCompany.contactPrenom,
+      contactTitre: newCompany.contactTitre,
+      contactTelephone: newCompany.contactTelephone,
+      contactEmail: newCompany.contactEmail
     };
 
     const newLicenceObj: Licence = {
@@ -598,6 +673,15 @@ export default function SuperAdminModule({
       nombre_succursales_actuel: 0,
       succursalesActives: true,
       depassementQuotaMode: 'blocage'
+    };
+
+    const newAdminUser = {
+      id: `u_${Date.now()}_admin`,
+      name: `${newCompany.contactPrenom} ${newCompany.contactNom}`,
+      email: newCompany.contactEmail,
+      role: 'Administrateur' as const,
+      password: 'password123',
+      tenantId: companyId
     };
 
     const newHist: HistoriqueLicence = {
@@ -674,24 +758,41 @@ export default function SuperAdminModule({
     onUpdateEntreprises(prev => [...prev, newCompanyObj]);
     onUpdateLicences(prev => [...prev, newLicenceObj]);
     onUpdateHistoriqueLicences(prev => [newHist, ...prev]);
+    onUpdateUsers(prev => [...prev, newAdminUser]);
     if (onUpdateTenants) {
       onUpdateTenants(prev => [...prev, newTenantConfig]);
     }
 
     setShowAddCompanyModal(false);
     triggerAlert(`Entreprise "${newCompany.raisonSociale}" créée avec succès !`, "success");
-    addSystemLog('Création Entreprise', `Initialisation réussie de l'entreprise : ${newCompany.raisonSociale}`, 'Succès');
+    addSystemLog('Création Entreprise', `Initialisation réussie de l'entreprise : ${newCompany.raisonSociale}. Administrateur ${newAdminUser.name} créé d'office.`, 'Succès');
     
     // Reset form
     setNewCompany({
       raisonSociale: '',
-      secteurActivite: 'Services Financiers',
+      secteurActivite: '🌾 Agriculture et Agro-industrie',
+      specificationSecteur: '',
       regionHebergement: 'Europe (Paris)',
       contactPrincipal: '',
       typeAbonnement: 'Mensuel',
       maxUsers: 10,
       maxSuccursales: 5,
-      modules: ['Cartographie', 'Plans d\'action']
+      maxDirections: 5,
+      maxDepartements: 10,
+      maxServices: 15,
+      maxSitesLocaux: 5,
+      maxFiliales: 5,
+      modules: ['Cartographie', 'Plans d\'action'],
+      pays: 'Cameroun',
+      ville: 'Yaoundé',
+      telephone: '',
+      email: '',
+      siteWeb: '',
+      contactNom: '',
+      contactPrenom: '',
+      contactTitre: 'Directeur Général',
+      contactTelephone: '',
+      contactEmail: ''
     });
   };
 
@@ -700,7 +801,15 @@ export default function SuperAdminModule({
       triggerAlert("Privilèges d'administration commerciale requis pour modifier un compte client.", "error");
       return;
     }
-    setEditingCompany({ ...ent, maxSuccursales: ent.maxSuccursales || 5 });
+    setEditingCompany({ 
+      ...ent, 
+      maxSuccursales: ent.maxSuccursales || 5,
+      maxDirections: ent.maxDirections || 5,
+      maxDepartements: ent.maxDepartements || 10,
+      maxServices: ent.maxServices || 15,
+      maxSitesLocaux: ent.maxSitesLocaux || 5,
+      maxFiliales: ent.maxFiliales || 5
+    });
     setShowEditCompanyModal(true);
   };
 
@@ -710,8 +819,16 @@ export default function SuperAdminModule({
 
     onUpdateEntreprises(prev => prev.map(c => {
       if (c.id === editingCompany.id) {
-        addSystemLog('Modification Entreprise', `Mise à jour des informations pour l'entreprise ${editingCompany.raisonSociale}. Succursales autorisées: ${editingCompany.maxSuccursales || 5}.`, 'Succès');
-        return { ...editingCompany, maxSuccursales: Number(editingCompany.maxSuccursales || 5) };
+        addSystemLog('Modification Entreprise', `Mise à jour des informations pour l'entreprise ${editingCompany.raisonSociale}. Quotas modifiés.`, 'Succès');
+        return { 
+          ...editingCompany, 
+          maxSuccursales: Number(editingCompany.maxSuccursales || 5),
+          maxDirections: Number(editingCompany.maxDirections || 5),
+          maxDepartements: Number(editingCompany.maxDepartements || 10),
+          maxServices: Number(editingCompany.maxServices || 15),
+          maxSitesLocaux: Number(editingCompany.maxSitesLocaux || 5),
+          maxFiliales: Number(editingCompany.maxFiliales || 5)
+        };
       }
       return c;
     }));
@@ -1326,6 +1443,14 @@ export default function SuperAdminModule({
               Diagnostic & Support
             </button>
             <button 
+              onClick={() => setActiveTab('settings')}
+              className={`px-3 py-1.5 text-[11px] font-bold rounded transition-colors whitespace-nowrap ${
+                activeTab === 'settings' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              ⚙ Paramètres
+            </button>
+            <button 
               onClick={() => setActiveTab('supabase')}
               className={`px-3 py-1.5 text-[11px] font-bold rounded transition-colors whitespace-nowrap ${
                 activeTab === 'supabase' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-slate-200'
@@ -1723,12 +1848,19 @@ export default function SuperAdminModule({
                             {ent.statutCompte === 'Actif' ? 'Actif' : ent.statutCompte === 'Essai' ? 'Essai' : 'Suspendu'}
                           </span>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-1 text-[11px] text-slate-400">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-[11px] text-slate-400">
                           <p>Secteur : <span className="text-slate-300 font-medium">{ent.secteurActivite}</span></p>
                           <p>Hébergement : <span className="text-slate-300 font-medium font-mono text-[10px]">{ent.regionHebergement}</span></p>
                           <p>Création : <span className="text-slate-300 font-medium">{ent.dateCreationCompte}</span></p>
                           <p>Contact : <span className="text-slate-300 font-medium">{ent.idContactPrincipal}</span></p>
-                          <p>Succursales Max : <span className="text-amber-400 font-bold font-mono">{ent.maxSuccursales || 5}</span></p>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] bg-slate-950/80 p-1.5 rounded border border-slate-800 mt-1.5 text-slate-400 font-mono">
+                          <span>🚪 Succursales : <strong className="text-amber-400 font-bold">{ent.maxSuccursales || 5}</strong></span>
+                          <span>🧭 Directions : <strong className="text-blue-400 font-bold">{ent.maxDirections || 5}</strong></span>
+                          <span>🏢 Départements : <strong className="text-indigo-400 font-bold">{ent.maxDepartements || 10}</strong></span>
+                          <span>🔧 Services : <strong className="text-purple-400 font-bold">{ent.maxServices || 15}</strong></span>
+                          <span>📍 Sites Locaux : <strong className="text-teal-400 font-bold">{ent.maxSitesLocaux || 5}</strong></span>
+                          <span>🏛️ Filiales : <strong className="text-pink-400 font-bold">{ent.maxFiliales || 5}</strong></span>
                         </div>
                       </div>
 
@@ -2828,6 +2960,153 @@ export default function SuperAdminModule({
           </div>
         )}
 
+        {/* ==================== TAB: SETTINGS (PARAMÈTRES) ==================== */}
+        {activeTab === 'settings' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in text-xs text-slate-300">
+            {/* LEFT COLUMN: Secteurs d'activité */}
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg space-y-4 shadow-xl">
+              <div className="flex items-center space-x-2 text-indigo-400 border-b border-slate-800 pb-3">
+                <Briefcase className="w-5 h-5 text-indigo-500" />
+                <h3 className="font-bold text-white text-sm">Gestion des Secteurs d'Activité</h3>
+              </div>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                Configurez les secteurs d'activité disponibles lors de la création d'une entreprise cliente sur la plateforme.
+              </p>
+
+              {/* Add Sector Form */}
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const form = e.currentTarget;
+                  const input = form.elements.namedItem('newSector') as HTMLInputElement;
+                  const val = input.value.trim();
+                  if (val) {
+                    if (sectors.includes(val)) {
+                      triggerAlert("Ce secteur existe déjà !", "warning");
+                    } else {
+                      setSectors([...sectors, val]);
+                      triggerAlert(`Secteur "${val}" ajouté avec succès.`, "success");
+                      addSystemLog('Configuration', `Ajout du secteur d'activité : ${val}`, 'Succès');
+                      input.value = '';
+                    }
+                  }
+                }}
+                className="flex gap-2"
+              >
+                <input 
+                  name="newSector"
+                  type="text"
+                  required
+                  placeholder="Ex: 🩺 Santé et Industrie Médicale"
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none focus:border-indigo-500 text-xs"
+                />
+                <button
+                  type="submit"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded transition-colors shrink-0"
+                >
+                  Ajouter
+                </button>
+              </form>
+
+              {/* Sectors List */}
+              <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
+                {sectors.map((sec, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-2.5 bg-slate-950 border border-slate-850 rounded hover:bg-slate-900 transition-colors">
+                    <span className="text-slate-200 font-semibold">{sec}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (sectors.length <= 1) {
+                          triggerAlert("Vous devez garder au moins un secteur d'activité.", "error");
+                          return;
+                        }
+                        setSectors(sectors.filter(s => s !== sec));
+                        triggerAlert(`Secteur "${sec}" supprimé.`, "success");
+                        addSystemLog('Configuration', `Suppression du secteur d'activité : ${sec}`, 'Succès');
+                      }}
+                      className="text-slate-500 hover:text-rose-500 transition-colors p-1"
+                      title="Supprimer ce secteur"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN: Régions d'hébergement RGPD */}
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg space-y-4 shadow-xl">
+              <div className="flex items-center space-x-2 text-teal-400 border-b border-slate-800 pb-3">
+                <MapPin className="w-5 h-5 text-teal-500" />
+                <h3 className="font-bold text-white text-sm">Gestion des Régions d'Hébergement (RGPD)</h3>
+              </div>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                Gérez les régions d'hébergement cloud d'infrastructure (RGPD) disponibles pour le déploiement des bases de données clientes.
+              </p>
+
+              {/* Add Region Form */}
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const form = e.currentTarget;
+                  const input = form.elements.namedItem('newRegion') as HTMLInputElement;
+                  const val = input.value.trim();
+                  if (val) {
+                    if (regions.includes(val)) {
+                      triggerAlert("Cette région existe déjà !", "warning");
+                    } else {
+                      setRegions([...regions, val]);
+                      triggerAlert(`Région "${val}" ajoutée avec succès.`, "success");
+                      addSystemLog('Configuration', `Ajout de la région d'hébergement : ${val}`, 'Succès');
+                      input.value = '';
+                    }
+                  }
+                }}
+                className="flex gap-2"
+              >
+                <input 
+                  name="newRegion"
+                  type="text"
+                  required
+                  placeholder="Ex: Afrique de l'Ouest (Dakar)"
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs"
+                />
+                <button
+                  type="submit"
+                  className="bg-teal-600 hover:bg-teal-500 text-white font-bold px-4 py-2 rounded transition-colors shrink-0"
+                >
+                  Ajouter
+                </button>
+              </form>
+
+              {/* Regions List */}
+              <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
+                {regions.map((reg, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-2.5 bg-slate-950 border border-slate-850 rounded hover:bg-slate-900 transition-colors">
+                    <span className="text-slate-200 font-semibold">{reg}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (regions.length <= 1) {
+                          triggerAlert("Vous devez garder au moins une région d'hébergement.", "error");
+                          return;
+                        }
+                        setRegions(regions.filter(r => r !== reg));
+                        triggerAlert(`Région "${reg}" supprimée.`, "success");
+                        addSystemLog('Configuration', `Suppression de la région : ${reg}`, 'Succès');
+                      }}
+                      className="text-slate-500 hover:text-rose-500 transition-colors p-1"
+                      title="Supprimer cette région"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* ==================== MODAL: ADD COMPANY ==================== */}
@@ -2841,7 +3120,7 @@ export default function SuperAdminModule({
               </button>
             </div>
 
-            <form onSubmit={handleCreateCompany} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleCreateCompany} className="p-5 space-y-4 text-xs max-h-[75vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1 col-span-2">
                   <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Raison Sociale de l'entreprise</label>
@@ -2862,10 +3141,9 @@ export default function SuperAdminModule({
                     value={newCompany.secteurActivite}
                     onChange={(e) => setNewCompany({...newCompany, secteurActivite: e.target.value})}
                   >
-                    <option value="Services Financiers">Services Financiers</option>
-                    <option value="Aéronautique & Défense">Aéronautique & Défense</option>
-                    <option value="Pharmacie & Santé">Pharmacie & Santé</option>
-                    <option value="Grande Distribution">Grande Distribution</option>
+                    {sectors.map((sec, i) => (
+                      <option key={i} value={sec}>{sec}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -2876,10 +3154,154 @@ export default function SuperAdminModule({
                     value={newCompany.regionHebergement}
                     onChange={(e) => setNewCompany({...newCompany, regionHebergement: e.target.value})}
                   >
-                    <option value="Europe (Paris)">Europe (Paris)</option>
-                    <option value="Europe (Francfort)">Europe (Francfort)</option>
-                    <option value="US East (N. Virginia)">US East (N. Virginia)</option>
+                    {regions.map((reg, i) => (
+                      <option key={i} value={reg}>{reg}</option>
+                    ))}
                   </select>
+                </div>
+
+                <div className="space-y-1 col-span-2">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Spécification descriptive sur l'activité</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="Ex : Commerce de détail agroalimentaire en zone urbaine..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={newCompany.specificationSecteur}
+                    onChange={(e) => setNewCompany({...newCompany, specificationSecteur: e.target.value})}
+                  />
+                </div>
+
+                {/* SECTION: CONTACT ADMINISTRATEUR */}
+                <div className="col-span-2 border-t border-slate-800 pt-3 mt-1">
+                  <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider block mb-2">👤 Contact Administrateur Client</span>
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Prénom</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="Ex : Alain Patrick"
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={newCompany.contactPrenom}
+                    onChange={(e) => setNewCompany({...newCompany, contactPrenom: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Nom</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="Ex : Nkoumou"
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={newCompany.contactNom}
+                    onChange={(e) => setNewCompany({...newCompany, contactNom: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Titre dans l'entreprise</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="Ex : Directeur Général"
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={newCompany.contactTitre}
+                    onChange={(e) => setNewCompany({...newCompany, contactTitre: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Téléphone Contact</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="Ex : +237 6xx xx xx xx"
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-mono"
+                    value={newCompany.contactTelephone}
+                    onChange={(e) => setNewCompany({...newCompany, contactTelephone: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-1 col-span-2">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Adresse E-mail du Compte</label>
+                  <input 
+                    type="email"
+                    required
+                    placeholder="Ex : alain.nkoumou@entreprise.com"
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={newCompany.contactEmail}
+                    onChange={(e) => setNewCompany({...newCompany, contactEmail: e.target.value})}
+                  />
+                </div>
+
+                {/* SECTION: EXTRA COMPANY INFO */}
+                <div className="col-span-2 border-t border-slate-800 pt-3 mt-1">
+                  <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider block mb-2">🏢 Informations d'Entreprise Supplémentaires</span>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Pays</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="Ex : Cameroun"
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={newCompany.pays}
+                    onChange={(e) => setNewCompany({...newCompany, pays: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Ville</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="Ex : Douala"
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={newCompany.ville}
+                    onChange={(e) => setNewCompany({...newCompany, ville: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Téléphone Entreprise</label>
+                  <input 
+                    type="text"
+                    placeholder="Ex : +237 2xx xx xx xx"
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-mono"
+                    value={newCompany.telephone}
+                    onChange={(e) => setNewCompany({...newCompany, telephone: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Adresse Email Générale</label>
+                  <input 
+                    type="email"
+                    placeholder="Ex : contact@entreprise.com"
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={newCompany.email}
+                    onChange={(e) => setNewCompany({...newCompany, email: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-1 col-span-2">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Site Web de l'Entreprise (Optionnel)</label>
+                  <input 
+                    type="text"
+                    placeholder="Ex : www.entreprise.com (Optionnel)"
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
+                    value={newCompany.siteWeb}
+                    onChange={(e) => setNewCompany({...newCompany, siteWeb: e.target.value})}
+                  />
+                </div>
+
+                {/* SECTION: CONTRACT DETAILS */}
+                <div className="col-span-2 border-t border-slate-800 pt-3 mt-1">
+                  <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider block mb-2">📜 Licence & Contrat Commercial</span>
                 </div>
 
                 <div className="space-y-1">
@@ -2907,7 +3329,7 @@ export default function SuperAdminModule({
                   />
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1 col-span-2">
                   <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Plafond succursales max (Facturable)</label>
                   <input 
                     type="number"
@@ -2919,14 +3341,68 @@ export default function SuperAdminModule({
                   />
                 </div>
 
-                <div className="space-y-1 col-span-2">
-                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Contact Administrateur Client</label>
+                {/* QUOTAS DE STRUCTURE */}
+                <div className="col-span-2 border-t border-slate-800 pt-3 mt-1">
+                  <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider block mb-2">🏢 Quotas des Unités de Structure (Gérés par Licence)</span>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Directions Max</label>
                   <input 
-                    type="text"
-                    placeholder="Nom du contact principal ou email"
-                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none"
-                    value={newCompany.contactPrincipal}
-                    onChange={(e) => setNewCompany({...newCompany, contactPrincipal: e.target.value})}
+                    type="number"
+                    min={1}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-mono"
+                    value={newCompany.maxDirections}
+                    onChange={(e) => setNewCompany({...newCompany, maxDirections: Number(e.target.value)})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Départements Max</label>
+                  <input 
+                    type="number"
+                    min={1}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-mono"
+                    value={newCompany.maxDepartements}
+                    onChange={(e) => setNewCompany({...newCompany, maxDepartements: Number(e.target.value)})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Services Max</label>
+                  <input 
+                    type="number"
+                    min={1}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-mono"
+                    value={newCompany.maxServices}
+                    onChange={(e) => setNewCompany({...newCompany, maxServices: Number(e.target.value)})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sites Locaux Max</label>
+                  <input 
+                    type="number"
+                    min={1}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-mono"
+                    value={newCompany.maxSitesLocaux}
+                    onChange={(e) => setNewCompany({...newCompany, maxSitesLocaux: Number(e.target.value)})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Filiales Max</label>
+                  <input 
+                    type="number"
+                    min={1}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-mono"
+                    value={newCompany.maxFiliales}
+                    onChange={(e) => setNewCompany({...newCompany, maxFiliales: Number(e.target.value)})}
                   />
                 </div>
 
@@ -3059,6 +3535,66 @@ export default function SuperAdminModule({
                     className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-bold"
                     value={editingCompany.maxSuccursales || 5}
                     onChange={(e) => setEditingCompany({...editingCompany, maxSuccursales: Number(e.target.value)})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Plafond directions max</label>
+                  <input 
+                    type="number"
+                    min={1}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-bold font-mono"
+                    value={editingCompany.maxDirections || 5}
+                    onChange={(e) => setEditingCompany({...editingCompany, maxDirections: Number(e.target.value)})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Plafond départements max</label>
+                  <input 
+                    type="number"
+                    min={1}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-bold font-mono"
+                    value={editingCompany.maxDepartements || 10}
+                    onChange={(e) => setEditingCompany({...editingCompany, maxDepartements: Number(e.target.value)})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Plafond services max</label>
+                  <input 
+                    type="number"
+                    min={1}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-bold font-mono"
+                    value={editingCompany.maxServices || 15}
+                    onChange={(e) => setEditingCompany({...editingCompany, maxServices: Number(e.target.value)})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Plafond sites locaux max</label>
+                  <input 
+                    type="number"
+                    min={1}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-bold font-mono"
+                    value={editingCompany.maxSitesLocaux || 5}
+                    onChange={(e) => setEditingCompany({...editingCompany, maxSitesLocaux: Number(e.target.value)})}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Plafond filiales max</label>
+                  <input 
+                    type="number"
+                    min={1}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none font-bold font-mono"
+                    value={editingCompany.maxFiliales || 5}
+                    onChange={(e) => setEditingCompany({...editingCompany, maxFiliales: Number(e.target.value)})}
                   />
                 </div>
               </div>

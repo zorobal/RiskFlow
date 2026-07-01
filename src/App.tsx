@@ -39,7 +39,8 @@ import {
   PRESET_COMPLIANCE_INCIDENTS,
   PRESET_ENTREPRISES,
   PRESET_LICENCES,
-  PRESET_HISTORIQUE_LICENCES
+  PRESET_HISTORIQUE_LICENCES,
+  PRESET_SESSIONS
 } from './initialData';
 
 import { 
@@ -59,7 +60,8 @@ import {
   ComplianceIncident,
   EntrepriseCliente,
   Licence,
-  HistoriqueLicence
+  HistoriqueLicence,
+  SessionExercice
 } from './types';
 
 export default function App() {
@@ -159,6 +161,37 @@ export default function App() {
     return saved ? JSON.parse(saved) : PRESET_HISTORIQUE_LICENCES;
   });
 
+  const [sessions, setSessions] = useState<SessionExercice[]>(() => {
+    const saved = localStorage.getItem('grc_sessions19');
+    return saved ? JSON.parse(saved) : PRESET_SESSIONS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('grc_sessions19', JSON.stringify(sessions));
+  }, [sessions]);
+
+  const handleAddSession = (s: SessionExercice) => {
+    setSessions(prev => [...prev, s]);
+    addAuditLog('Administration', `Démarrage d'une nouvelle session d'exercice ${s.annee} (${s.dateDebut} à ${s.dateFin})`);
+  };
+
+  const handleUpdateSession = (updated: SessionExercice) => {
+    setSessions(prev => prev.map(s => s.id === updated.id ? updated : s));
+    if (updated.statut === 'Clôturée') {
+      addAuditLog('Administration', `Clôture de la session d'exercice ${updated.annee} avec bilan annuel répertorié.`);
+    } else {
+      addAuditLog('Administration', `Mise à jour de la session d'exercice ${updated.annee}`);
+    }
+  };
+
+  const handleDeleteSession = (id: string) => {
+    const sessionToDelete = sessions.find(s => s.id === id);
+    if (sessionToDelete) {
+      setSessions(prev => prev.filter(s => s.id !== id));
+      addAuditLog('Administration', `Suppression de la session d'exercice ${sessionToDelete.annee}`);
+    }
+  };
+
   const [isSuperAdminMode, setIsSuperAdminMode] = useState<boolean>(() => {
     return localStorage.getItem('grc_superAdminMode19') === 'true';
   });
@@ -198,6 +231,19 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('grc_currentUser19', JSON.stringify(currentUser));
   }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser.role === 'SuperAdmin' || currentUser.role === 'Administrateur') return;
+    if (currentUser.allowedModules && currentUser.allowedModules.length > 0) {
+      if (!currentUser.allowedModules.includes(activeModule)) {
+        setActiveModule('dashboard');
+      }
+    } else {
+      if (currentUser.role === 'Analyste' && ['admin', 'config'].includes(activeModule)) {
+        setActiveModule('dashboard');
+      }
+    }
+  }, [currentUser, activeModule]);
 
   useEffect(() => {
     localStorage.setItem('grc_auditLogs19', JSON.stringify(auditLogs));
@@ -503,6 +549,11 @@ export default function App() {
     addAuditLog('Habilitation', `Suppression du profil de collaborateur DB ID: ${id}`);
   };
 
+  const handleUpdateUser = (updatedUser: User) => {
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    addAuditLog('Habilitation', `Modification de l'utilisateur "${updatedUser.name}" [Privilèges: ${updatedUser.role}, Actif: ${updatedUser.isActive !== false}]`);
+  };
+
   const handleAddTenant = (name: string) => {
     const newId = `tenant_${Date.now()}`;
     const newTenant: TenantConfig = {
@@ -716,6 +767,11 @@ export default function App() {
                 users={users}
                 onAddLog={addAuditLog}
                 maxSuccursales={activeLicence?.nombre_succursales_max ?? activeEntreprise?.maxSuccursales ?? 5}
+                maxDirections={activeEntreprise?.maxDirections ?? 5}
+                maxDepartements={activeEntreprise?.maxDepartements ?? 10}
+                maxServices={activeEntreprise?.maxServices ?? 15}
+                maxSitesLocaux={activeEntreprise?.maxSitesLocaux ?? 5}
+                maxFiliales={activeEntreprise?.maxFiliales ?? 5}
                 depassementQuotaMode={activeLicence?.depassementQuotaMode ?? activeEntreprise?.depassementQuotaMode ?? 'blocage'}
                 succursalesActives={activeLicence?.succursalesActives ?? activeEntreprise?.succursalesActives ?? true}
               />
@@ -771,11 +827,16 @@ export default function App() {
                 users={users}
                 onAddUser={handleAddUser}
                 onDeleteUser={handleDeleteUser}
+                onUpdateUser={handleUpdateUser}
                 tenants={tenants}
                 onAddTenant={handleAddTenant}
                 auditLogs={auditLogs}
                 activeTenantId={activeTenantId}
                 initialTab={adminTab}
+                sessions={sessions}
+                onAddSession={handleAddSession}
+                onUpdateSession={handleUpdateSession}
+                onDeleteSession={handleDeleteSession}
               />
             )}
 

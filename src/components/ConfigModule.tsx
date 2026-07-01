@@ -29,7 +29,10 @@ import {
   CloudLightning,
   RefreshCw,
   AlertCircle,
-  Server
+  Server,
+  ArrowUp,
+  ArrowDown,
+  Edit
 } from 'lucide-react';
 import { 
   TenantConfig, 
@@ -56,6 +59,11 @@ interface ConfigModuleProps {
   users: GrcUser[];
   onAddLog: (action: string, details: string) => void;
   maxSuccursales?: number;
+  maxDirections?: number;
+  maxDepartements?: number;
+  maxServices?: number;
+  maxSitesLocaux?: number;
+  maxFiliales?: number;
   depassementQuotaMode?: 'blocage' | 'inactif';
   succursalesActives?: boolean;
 }
@@ -74,6 +82,11 @@ export default function ConfigModule({
   users,
   onAddLog,
   maxSuccursales = 5,
+  maxDirections = 5,
+  maxDepartements = 10,
+  maxServices = 15,
+  maxSitesLocaux = 5,
+  maxFiliales = 5,
   depassementQuotaMode = 'blocage',
   succursalesActives = true
 }: ConfigModuleProps) {
@@ -124,6 +137,96 @@ export default function ConfigModule({
   const [selectedFormulaId, setSelectedFormulaId] = useState(tenantConfig.formula.id);
   const [matrixSize, setMatrixSize] = useState(tenantConfig.matrixSize);
 
+  // Workflow step edit/create states
+  const [newStepName, setNewStepName] = useState('');
+  const [newStepColor, setNewStepColor] = useState('bg-slate-50 border-slate-200 text-slate-800');
+  const [editingStepId, setEditingStepId] = useState<string | null>(null);
+  const [editingStepName, setEditingStepName] = useState('');
+  const [editingStepColor, setEditingStepColor] = useState('');
+
+  const handleAddStep = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStepName.trim()) return;
+
+    const nextOrder = tenantConfig.workflowSteps.length + 1;
+    const newStep = {
+      id: `w_step_${Date.now()}`,
+      name: newStepName.trim(),
+      color: newStepColor,
+      order: nextOrder
+    };
+
+    onUpdateTenantConfig({
+      ...tenantConfig,
+      workflowSteps: [...tenantConfig.workflowSteps, newStep]
+    });
+
+    onAddLog('Workflow', `Ajout de l'étape de validation : ${newStep.name}`);
+    setNewStepName('');
+  };
+
+  const handleDeleteStep = (id: string) => {
+    if (tenantConfig.workflowSteps.length <= 1) {
+      alert("Impossible de supprimer la dernière étape de validation.");
+      return;
+    }
+    const filteredSteps = tenantConfig.workflowSteps.filter(s => s.id !== id);
+    const reorderedSteps = filteredSteps.map((s, index) => ({
+      ...s,
+      order: index + 1
+    }));
+
+    onUpdateTenantConfig({
+      ...tenantConfig,
+      workflowSteps: reorderedSteps
+    });
+    onAddLog('Workflow', `Suppression de l'étape de validation ID ${id}.`);
+  };
+
+  const handleMoveStep = (index: number, direction: 'up' | 'down') => {
+    const steps = [...tenantConfig.workflowSteps];
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === steps.length - 1) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const temp = steps[index];
+    steps[index] = steps[targetIndex];
+    steps[targetIndex] = temp;
+
+    const updatedSteps = steps.map((s, idx) => ({
+      ...s,
+      order: idx + 1
+    }));
+
+    onUpdateTenantConfig({
+      ...tenantConfig,
+      workflowSteps: updatedSteps
+    });
+    onAddLog('Workflow', `Réorganisation de la séquence du workflow.`);
+  };
+
+  const handleSaveEditStep = (id: string) => {
+    if (!editingStepName.trim()) return;
+    const updatedSteps = tenantConfig.workflowSteps.map(s => {
+      if (s.id === id) {
+        return {
+          ...s,
+          name: editingStepName.trim(),
+          color: editingStepColor
+        };
+      }
+      return s;
+    });
+
+    onUpdateTenantConfig({
+      ...tenantConfig,
+      workflowSteps: updatedSteps
+    });
+
+    onAddLog('Workflow', `Modification de l'étape en : ${editingStepName}`);
+    setEditingStepId(null);
+  };
+
   // --- Org Nodes Add & Remove ---
   const handleAddOrgNode = (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,6 +251,64 @@ export default function ConfigModule({
         } else {
           // creation with Inactif status
           alert(`⚠️ Quota dépassé (Création restreinte) :\n\nLa limite contractuelle de ${maxSuccursales} succursales est atteinte.\nLa succursale sera créée avec le statut "Inactif" et sera bloquée jusqu'à mise à niveau de votre abonnement.`);
+          determinedStatus = 'Inactif';
+        }
+      }
+    }
+
+    // Enforce specific structural unit quotas
+    if (newOrgType === 'Direction') {
+      const currentCount = tenantConfig.entities.filter(ent => ent.statut !== 'Archivé' && ent.type === 'Direction').length;
+      if (currentCount >= maxDirections) {
+        if (depassementQuotaMode === 'blocage') {
+          alert(`⚠️ Dépassement de quota bloqué :\n\nVotre licence actuelle limite le nombre de Directions à ${maxDirections}.\n\nLa création d'une nouvelle Direction est interdite. Veuillez contacter le SuperAdministrateur pour modifier votre offre contractuelle.`);
+          return;
+        } else {
+          alert(`⚠️ Quota dépassé :\n\nLa limite contractuelle de ${maxDirections} Directions est atteinte. L'unité sera créée avec le statut "Inactif".`);
+          determinedStatus = 'Inactif';
+        }
+      }
+    } else if (newOrgType === 'Département') {
+      const currentCount = tenantConfig.entities.filter(ent => ent.statut !== 'Archivé' && ent.type === 'Département').length;
+      if (currentCount >= maxDepartements) {
+        if (depassementQuotaMode === 'blocage') {
+          alert(`⚠️ Dépassement de quota bloqué :\n\nVotre licence actuelle limite le nombre de Départements à ${maxDepartements}.\n\nLa création d'un nouveau Département est interdite. Veuillez contacter le SuperAdministrateur pour modifier votre offre contractuelle.`);
+          return;
+        } else {
+          alert(`⚠️ Quota dépassé :\n\nLa limite contractuelle de ${maxDepartements} Départements est atteinte. L'unité sera créée avec le statut "Inactif".`);
+          determinedStatus = 'Inactif';
+        }
+      }
+    } else if (newOrgType === 'Service') {
+      const currentCount = tenantConfig.entities.filter(ent => ent.statut !== 'Archivé' && ent.type === 'Service').length;
+      if (currentCount >= maxServices) {
+        if (depassementQuotaMode === 'blocage') {
+          alert(`⚠️ Dépassement de quota bloqué :\n\nVotre licence actuelle limite le nombre de Services à ${maxServices}.\n\nLa création d'un nouveau Service est interdite. Veuillez contacter le SuperAdministrateur pour modifier votre offre contractuelle.`);
+          return;
+        } else {
+          alert(`⚠️ Quota dépassé :\n\nLa limite contractuelle de ${maxServices} Services est atteinte. L'unité sera créée avec le statut "Inactif".`);
+          determinedStatus = 'Inactif';
+        }
+      }
+    } else if (newOrgType === 'Site') {
+      const currentCount = tenantConfig.entities.filter(ent => ent.statut !== 'Archivé' && ent.type === 'Site').length;
+      if (currentCount >= maxSitesLocaux) {
+        if (depassementQuotaMode === 'blocage') {
+          alert(`⚠️ Dépassement de quota bloqué :\n\nVotre licence actuelle limite le nombre de Sites Locaux à ${maxSitesLocaux}.\n\nLa création d'un nouveau Site Local est interdite. Veuillez contacter le SuperAdministrateur pour modifier votre offre contractuelle.`);
+          return;
+        } else {
+          alert(`⚠️ Quota dépassé :\n\nLa limite contractuelle de ${maxSitesLocaux} Sites Locaux est atteinte. L'unité sera créée avec le statut "Inactif".`);
+          determinedStatus = 'Inactif';
+        }
+      }
+    } else if (newOrgType === 'Filiale') {
+      const currentCount = tenantConfig.entities.filter(ent => ent.statut !== 'Archivé' && ent.type === 'Filiale').length;
+      if (currentCount >= maxFiliales) {
+        if (depassementQuotaMode === 'blocage') {
+          alert(`⚠️ Dépassement de quota bloqué :\n\nVotre licence actuelle limite le nombre de Filiales à ${maxFiliales}.\n\nLa création d'une nouvelle Filiale est interdite. Veuillez contacter le SuperAdministrateur pour modifier votre offre contractuelle.`);
+          return;
+        } else {
+          alert(`⚠️ Quota dépassé :\n\nLa limite contractuelle de ${maxFiliales} Filiales est atteinte. L'unité sera créée avec le statut "Inactif".`);
           determinedStatus = 'Inactif';
         }
       }
@@ -1103,47 +1264,188 @@ export default function ConfigModule({
 
           {/* TAB: WORKFLOWS */}
           {activeTab === 'workflow' && (
-            <div className="space-y-6">
-              <div className="border-b border-slate-100 pb-3">
-                <h3 className="font-bold text-sm text-slate-800">Circuits de Validation et Délais d'Escalade (Section 2.2.4)</h3>
-                <p className="text-slate-400 text-[10.5px]">Définissez les étapes séquentielles obligatoires pour approuver un risque. Chaque étape est liée à une fonction validatrice.</p>
+            <div className="space-y-6 text-left">
+              <div className="border-b border-slate-100 pb-3 flex flex-wrap justify-between items-center gap-2">
+                <div>
+                  <h3 className="font-bold text-sm text-slate-800">Circuits de Validation et Délais d'Escalade (Section 2.2.4)</h3>
+                  <p className="text-slate-400 text-[10.5px]">Définissez les étapes séquentielles obligatoires pour approuver un risque. Chaque étape est liée à une fonction GRC.</p>
+                </div>
               </div>
 
-              {/* Workflow diagram/steps visualizer */}
-              <div className="space-y-4">
-                <h4 className="font-extrabold text-slate-800 uppercase text-xs">Séquence du Workflow GRC :</h4>
+              {/* Form to Add New Step */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <h4 className="font-bold text-slate-800 text-[11.5px] uppercase tracking-wider flex items-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                  Créer et Ajouter une Étape au Workflow de Validation
+                </h4>
                 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5">
-                  {tenantConfig.workflowSteps.map((step, index) => (
-                    <React.Fragment key={step.id}>
-                      <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center space-y-2 relative shadow-sm hover:border-indigo-300 transition">
-                        <span className="absolute top-1.5 left-2 bg-indigo-50 text-indigo-600 font-mono text-[9px] font-bold px-1.5 py-0.2 rounded">
-                          Étape {step.order}
-                        </span>
-                        
-                        <div className="font-bold text-slate-850 text-xs mt-3">
-                          {step.name}
-                        </div>
+                <form onSubmit={handleAddStep} className="flex flex-col sm:flex-row gap-3 items-end">
+                  <div className="flex-1 space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold uppercase">Libellé de l'étape de validation</label>
+                    <input 
+                      type="text"
+                      required
+                      placeholder="Ex. Validation Direction Générale"
+                      value={newStepName}
+                      onChange={(e) => setNewStepName(e.target.value)}
+                      className="w-full bg-white border border-slate-250 rounded p-1.5 text-xs text-slate-800 font-semibold focus:outline-none"
+                    />
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold uppercase block">Style Visuel de l'Étape</label>
+                    <select
+                      value={newStepColor}
+                      onChange={(e) => setNewStepColor(e.target.value)}
+                      className="bg-white border border-slate-250 rounded p-1.5 text-xs text-slate-700 font-bold focus:outline-none"
+                    >
+                      <option value="bg-slate-50 border-slate-200 text-slate-800">🔘 Gris Neutre (Brouillon / Attente)</option>
+                      <option value="bg-amber-50 border-amber-200 text-amber-800">🟡 Jaune Ambre (Soumis / En Revue)</option>
+                      <option value="bg-blue-50 border-blue-200 text-blue-800">🔵 Bleu Azur (Validation Intermédiaire)</option>
+                      <option value="bg-emerald-50 border-emerald-200 text-emerald-800">🟢 Vert Émeraude (Approuvé / Finalisé)</option>
+                      <option value="bg-rose-50 border-rose-200 text-rose-800">🔴 Rouge Rose (Rejeté / À Corriger)</option>
+                    </select>
+                  </div>
 
-                        <p className="text-slate-400 text-[9px] leading-tight">
-                          {step.id === 'w_brouillon' ? 'Initiateur de la fiche' :
-                           step.id === 'w_validation' ? 'Responsable d\'Unité d\'assiette' :
-                           step.id === 'w_approuve' ? 'CRO / Secrétariat d\'Audit' : 'Revue technique'}
-                        </p>
+                  <button
+                    type="submit"
+                    className="py-1.5 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow transition text-xs cursor-pointer flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Ajouter l'Étape
+                  </button>
+                </form>
+              </div>
 
-                        <div className="pt-2 border-t text-[9px] text-slate-450 space-y-0.5">
-                          <p>Délai max : 15 jours</p>
-                          <p className="font-semibold text-rose-600">Timeout : Escalade</p>
-                        </div>
+              {/* Steps Sequencer List */}
+              <div className="space-y-3">
+                <h4 className="font-extrabold text-slate-800 uppercase text-xs flex items-center gap-1.5">
+                  <Workflow className="w-4 h-4 text-indigo-600" />
+                  Séquence et Ordonnancement du Workflow GRC :
+                </h4>
+                
+                <div className="space-y-2">
+                  {tenantConfig.workflowSteps.map((step, index) => {
+                    const isEditing = editingStepId === step.id;
+                    const stepStyle = step.color || "bg-slate-50 border-slate-200 text-slate-800";
+                    
+                    return (
+                      <div 
+                        key={step.id} 
+                        className={`p-3 border rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm transition-all duration-150 hover:shadow-md ${stepStyle}`}
+                      >
+                        {/* Information / Inline Edit Form */}
+                        {isEditing ? (
+                          <div className="flex-1 flex flex-col sm:flex-row gap-2.5 items-end bg-white/20 p-2.5 rounded-lg border border-white/30 text-left">
+                            <div className="flex-1 space-y-1">
+                              <label className="text-[9px] font-bold uppercase opacity-85 block text-slate-700">Nom de l'étape</label>
+                              <input 
+                                type="text"
+                                value={editingStepName}
+                                onChange={(e) => setEditingStepName(e.target.value)}
+                                className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 font-bold focus:outline-none"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold uppercase opacity-85 block text-slate-700">Style</label>
+                              <select
+                                value={editingStepColor}
+                                onChange={(e) => setEditingStepColor(e.target.value)}
+                                className="bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-700 font-bold focus:outline-none"
+                              >
+                                <option value="bg-slate-50 border-slate-200 text-slate-800">🔘 Gris Neutre</option>
+                                <option value="bg-amber-50 border-amber-200 text-amber-800">🟡 Jaune Ambre</option>
+                                <option value="bg-blue-50 border-blue-200 text-blue-800">🔵 Bleu Azur</option>
+                                <option value="bg-emerald-50 border-emerald-200 text-emerald-800">🟢 Vert Émeraude</option>
+                                <option value="bg-rose-50 border-rose-200 text-rose-800">🔴 Rouge Rose</option>
+                              </select>
+                            </div>
+                            <div className="flex gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveEditStep(step.id)}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded cursor-pointer"
+                              >
+                                Sauver
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingStepId(null)}
+                                className="px-2.5 py-1 bg-slate-500 hover:bg-slate-600 text-white text-[10px] font-bold rounded cursor-pointer"
+                              >
+                                Annuler
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-3.5">
+                            <span className="bg-white/75 px-2 py-0.5 rounded font-mono text-[10px] font-bold shadow-sm text-slate-800">
+                              Rang {step.order}
+                            </span>
+                            <div>
+                              <strong className="text-xs font-black block">{step.name}</strong>
+                              <span className="text-[9.5px] font-mono opacity-80">
+                                ID: <code className="bg-white/30 p-0.5 rounded">{step.id}</code>
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Controls (Disabled when editing) */}
+                        {!isEditing && (
+                          <div className="flex items-center gap-1 shrink-0 self-end md:self-auto bg-white/45 p-1 rounded-lg border border-white/20">
+                            {/* Reorder Buttons */}
+                            <button
+                              type="button"
+                              onClick={() => handleMoveStep(index, 'up')}
+                              disabled={index === 0}
+                              className={`p-1.5 rounded transition cursor-pointer ${
+                                index === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-white'
+                              }`}
+                              title="Déplacer vers le haut"
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveStep(index, 'down')}
+                              disabled={index === tenantConfig.workflowSteps.length - 1}
+                              className={`p-1.5 rounded transition cursor-pointer ${
+                                index === tenantConfig.workflowSteps.length - 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-white'
+                              }`}
+                              title="Déplacer vers le bas"
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Edit Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingStepId(step.id);
+                                setEditingStepName(step.name);
+                                setEditingStepColor(stepStyle);
+                              }}
+                              className="p-1.5 text-slate-700 hover:bg-white rounded transition cursor-pointer"
+                              title="Modifier l'étape"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Delete Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteStep(step.id)}
+                              className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
+                              title="Supprimer l'étape"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
-
-                      {index < tenantConfig.workflowSteps.length - 1 && (
-                        <div className="hidden sm:flex justify-center shrink-0">
-                          <ArrowRight className="w-5 h-5 text-indigo-400 animate-pulse" />
-                        </div>
-                      )}
-                    </React.Fragment>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

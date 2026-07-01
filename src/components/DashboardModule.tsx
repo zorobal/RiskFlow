@@ -30,14 +30,97 @@ export default function DashboardModule({
   const [selectedEntityId, setSelectedEntityId] = useState<string>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
 
-  // Filter risks
-  const filteredRisks = risks.filter(r => {
+  // Date filters state
+  const [selectedYear, setSelectedYear] = useState<string>('2026');
+  const [selectedPeriodicity, setSelectedPeriodicity] = useState<string>('all');
+  const [selectedMonth, setSelectedMonth] = useState<number>(3); // March (standard mock data month)
+  const [selectedTrimester, setSelectedTrimester] = useState<number>(1);
+  const [selectedStartMonth, setSelectedStartMonth] = useState<number>(1);
+  const [selectedEndMonth, setSelectedEndMonth] = useState<number>(6);
+
+  // Helper to check if a risk falls inside a specific year & month range
+  const matchPeriod = (createdAtStr: string, year: string, periodicity: string, month: number, trimester: number, startM: number, endM: number) => {
+    if (!createdAtStr) return false;
+    const parts = createdAtStr.split('-');
+    if (parts.length < 3) return false;
+    const rYear = parts[0];
+    const rMonth = parseInt(parts[1], 10);
+
+    if (year !== 'all' && rYear !== year) return false;
+
+    if (periodicity === 'month') {
+      return rMonth === month;
+    } else if (periodicity === 'trimester') {
+      if (trimester === 1) return rMonth >= 1 && rMonth <= 3;
+      if (trimester === 2) return rMonth >= 4 && rMonth <= 6;
+      if (trimester === 3) return rMonth >= 7 && rMonth <= 9;
+      if (trimester === 4) return rMonth >= 10 && rMonth <= 12;
+    } else if (periodicity === 'interval') {
+      return rMonth >= startM && rMonth <= endM;
+    }
+    return true; // if periodicity is all
+  };
+
+  // Helper to compute previous period parameters
+  const getPrevPeriodParams = () => {
+    let prevYear = selectedYear;
+    let prevPeriodicity = selectedPeriodicity;
+    let prevMonth = selectedMonth;
+    let prevTrimester = selectedTrimester;
+    let prevStartM = selectedStartMonth;
+    let prevEndM = selectedEndMonth;
+
+    if (selectedPeriodicity === 'all') {
+      prevYear = selectedYear === '2026' ? '2025' : 'all';
+    } else if (selectedPeriodicity === 'month') {
+      if (selectedMonth === 1) {
+        prevMonth = 12;
+        prevYear = selectedYear === '2026' ? '2025' : 'all';
+      } else {
+        prevMonth = selectedMonth - 1;
+      }
+    } else if (selectedPeriodicity === 'trimester') {
+      if (selectedTrimester === 1) {
+        prevTrimester = 4;
+        prevYear = selectedYear === '2026' ? '2025' : 'all';
+      } else {
+        prevTrimester = selectedTrimester - 1;
+      }
+    } else if (selectedPeriodicity === 'interval') {
+      const size = selectedEndMonth - selectedStartMonth + 1;
+      if (selectedStartMonth - size >= 1) {
+        prevStartM = selectedStartMonth - size;
+        prevEndM = selectedStartMonth - 1;
+      } else {
+        prevYear = selectedYear === '2026' ? '2025' : 'all';
+        prevStartM = 12 - size + 1;
+        prevEndM = 12;
+      }
+    }
+
+    return { prevYear, prevPeriodicity, prevMonth, prevTrimester, prevStartM, prevEndM };
+  };
+
+  const prevParams = getPrevPeriodParams();
+
+  // Filter risks by Org Entities & Categories first
+  const orgFilteredRisks = risks.filter(r => {
     const matchEntity = selectedEntityId === 'all' || r.entityId === selectedEntityId;
     const matchCat = selectedCategoryId === 'all' || r.categoryId === selectedCategoryId;
     return matchEntity && matchCat;
   });
 
-  // Calculate Metrics
+  // Current period filtered risks (combining org filter + date filter)
+  const filteredRisks = orgFilteredRisks.filter(r => 
+    matchPeriod(r.createdAt, selectedYear, selectedPeriodicity, selectedMonth, selectedTrimester, selectedStartMonth, selectedEndMonth)
+  );
+
+  // Previous period filtered risks for comparison
+  const previousPeriodRisks = orgFilteredRisks.filter(r => 
+    matchPeriod(r.createdAt, prevParams.prevYear, prevParams.prevPeriodicity, prevParams.prevMonth, prevParams.prevTrimester, prevParams.prevStartM, prevParams.prevEndM)
+  );
+
+  // Calculate Metrics for Current Period
   const totalRisks = filteredRisks.length;
   
   const avgResidualScore = totalRisks > 0
@@ -48,6 +131,17 @@ export default function DashboardModule({
   const completedActions = actions.filter(a => filteredRisks.some(r => r.id === a.riskId) && a.status === 'Réalisé').length;
   const actionCompletionRate = totalActions > 0 
     ? Math.round((completedActions / totalActions) * 100) 
+    : 0;
+
+  // Calculate Metrics for Previous Period
+  const totalRisksPrev = previousPeriodRisks.length;
+  const avgResidualScorePrev = totalRisksPrev > 0
+    ? Number((previousPeriodRisks.reduce((acc, curr) => acc + curr.scoreResiduel, 0) / totalRisksPrev).toFixed(1))
+    : 0;
+  const totalActionsPrev = actions.filter(a => previousPeriodRisks.some(r => r.id === a.riskId)).length;
+  const completedActionsPrev = actions.filter(a => previousPeriodRisks.some(r => r.id === a.riskId) && a.status === 'Réalisé').length;
+  const actionCompletionRatePrev = totalActionsPrev > 0 
+    ? Math.round((completedActionsPrev / totalActionsPrev) * 100) 
     : 0;
 
   // Group by Criticality
@@ -113,13 +207,13 @@ export default function DashboardModule({
         </div>
 
         {/* Top filter selects */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-col">
             <span className="text-[10px] text-slate-400 font-semibold mb-1 uppercase">Entité Org</span>
             <select
               value={selectedEntityId}
               onChange={(e) => setSelectedEntityId(e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-slate-700 rounded px-2 py-1.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-xs font-medium cursor-pointer"
+              className="bg-slate-50 border border-slate-200 text-slate-700 rounded px-2 py-1.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-xs font-semibold cursor-pointer"
             >
               <option value="all">Toutes les entités (Global)</option>
               {tenantConfig.entities.map(e => (
@@ -135,7 +229,7 @@ export default function DashboardModule({
             <select
               value={selectedCategoryId}
               onChange={(e) => setSelectedCategoryId(e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium cursor-pointer"
+              className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-semibold cursor-pointer"
             >
               <option value="all">Toutes les catégories</option>
               {tenantConfig.categories.map(c => (
@@ -143,6 +237,108 @@ export default function DashboardModule({
               ))}
             </select>
           </div>
+
+          {/* TEMPORAL DATE FILTERS */}
+          <div className="flex flex-col border-l border-slate-200 pl-3">
+            <span className="text-[10px] text-indigo-650 font-bold mb-1 uppercase">📅 Exercice</span>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="bg-indigo-50/50 border border-indigo-100 text-indigo-900 text-xs rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-bold cursor-pointer"
+            >
+              <option value="all">Toutes les années</option>
+              <option value="2025">Exercice 2025</option>
+              <option value="2026">Exercice 2026</option>
+              <option value="2027">Exercice 2027</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col">
+            <span className="text-[10px] text-indigo-650 font-bold mb-1 uppercase">⏱️ Périodicité</span>
+            <select
+              value={selectedPeriodicity}
+              onChange={(e) => setSelectedPeriodicity(e.target.value)}
+              className="bg-indigo-50/50 border border-indigo-100 text-indigo-900 text-xs rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-bold cursor-pointer"
+            >
+              <option value="all">Année complète</option>
+              <option value="month">Mois spécifique</option>
+              <option value="trimester">Trimestre</option>
+              <option value="interval">Intervalle de mois</option>
+            </select>
+          </div>
+
+          {/* Sub Date Filters */}
+          {selectedPeriodicity === 'month' && (
+            <div className="flex flex-col">
+              <span className="text-[10px] text-slate-400 font-semibold mb-1 uppercase">Mois</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-semibold cursor-pointer"
+              >
+                {[
+                  { v: 1, l: 'Janvier' }, { v: 2, l: 'Février' }, { v: 3, l: 'Mars' }, { v: 4, l: 'Avril' },
+                  { v: 5, l: 'Mai' }, { v: 6, l: 'Juin' }, { v: 7, l: 'Juillet' }, { v: 8, l: 'Août' },
+                  { v: 9, l: 'Septembre' }, { v: 10, l: 'Octobre' }, { v: 11, l: 'Novembre' }, { v: 12, l: 'Décembre' }
+                ].map(m => (
+                  <option key={m.v} value={m.v}>{m.l}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {selectedPeriodicity === 'trimester' && (
+            <div className="flex flex-col">
+              <span className="text-[10px] text-slate-400 font-semibold mb-1 uppercase">Trimestre</span>
+              <select
+                value={selectedTrimester}
+                onChange={(e) => setSelectedTrimester(parseInt(e.target.value))}
+                className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-semibold cursor-pointer"
+              >
+                <option value={1}>Trimestre 1 (Jan-Mar)</option>
+                <option value={2}>Trimestre 2 (Avr-Jun)</option>
+                <option value={3}>Trimestre 3 (Jul-Sep)</option>
+                <option value={4}>Trimestre 4 (Oct-Déc)</option>
+              </select>
+            </div>
+          )}
+
+          {selectedPeriodicity === 'interval' && (
+            <>
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-semibold mb-1 uppercase">Du mois</span>
+                <select
+                  value={selectedStartMonth}
+                  onChange={(e) => setSelectedStartMonth(parseInt(e.target.value))}
+                  className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded px-2 py-1.5 focus:outline-none font-semibold cursor-pointer"
+                >
+                  {[
+                    { v: 1, l: 'Janvier' }, { v: 2, l: 'Février' }, { v: 3, l: 'Mars' }, { v: 4, l: 'Avril' },
+                    { v: 5, l: 'Mai' }, { v: 6, l: 'Juin' }, { v: 7, l: 'Juillet' }, { v: 8, l: 'Août' },
+                    { v: 9, l: 'Septembre' }, { v: 10, l: 'Octobre' }, { v: 11, l: 'Novembre' }, { v: 12, l: 'Décembre' }
+                  ].map(m => (
+                    <option key={m.v} value={m.v}>{m.l}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-semibold mb-1 uppercase">Au mois</span>
+                <select
+                  value={selectedEndMonth}
+                  onChange={(e) => setSelectedEndMonth(parseInt(e.target.value))}
+                  className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded px-2 py-1.5 focus:outline-none font-semibold cursor-pointer"
+                >
+                  {[
+                    { v: 1, l: 'Janvier' }, { v: 2, l: 'Février' }, { v: 3, l: 'Mars' }, { v: 4, l: 'Avril' },
+                    { v: 5, l: 'Mai' }, { v: 6, l: 'Juin' }, { v: 7, l: 'Juillet' }, { v: 8, l: 'Août' },
+                    { v: 9, l: 'Septembre' }, { v: 10, l: 'Octobre' }, { v: 11, l: 'Novembre' }, { v: 12, l: 'Décembre' }
+                  ].map(m => (
+                    <option key={m.v} value={m.v}>{m.l}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -195,6 +391,89 @@ export default function DashboardModule({
           </div>
           <div className="w-11 h-11 bg-red-50 text-red-600 rounded-lg flex items-center justify-center">
             <AlertTriangle className="w-5 h-5" />
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION COMPARATIVE GRC (Request 3.3) */}
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="space-y-0.5">
+            <h3 className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
+              <TrendingUp className="w-4 h-4 text-indigo-600" />
+              Comparateur d'Indicateurs GRC (Période en Cours vs Période Précédente)
+            </h3>
+            <p className="text-slate-400 text-[10.5px]">
+              Analyse comparative automatisée des performances de réduction de risques par rapport au cycle précédent.
+            </p>
+          </div>
+          <div className="bg-indigo-50 border border-indigo-100 text-indigo-900 font-mono text-[9.5px] font-bold px-2 py-1 rounded">
+            Période comparative calculée : Exercice {prevParams.prevYear !== 'all' ? prevParams.prevYear : 'Tout'} {selectedPeriodicity === 'month' ? `(Mois ${prevParams.prevMonth})` : selectedPeriodicity === 'trimester' ? `(T${prevParams.prevTrimester})` : selectedPeriodicity === 'interval' ? `(Mois ${prevParams.prevStartM}-${prevParams.prevEndM})` : '(Annuel)'}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Compare Risks Count */}
+          <div className="p-4 bg-slate-50 border border-slate-150 rounded-xl space-y-2">
+            <span className="text-[10px] text-slate-500 font-bold uppercase">Volume de Risques Actifs</span>
+            <div className="flex items-baseline gap-2.5">
+              <span className="text-2xl font-extrabold text-slate-950">{totalRisks}</span>
+              <span className="text-xs text-slate-400">vs {totalRisksPrev} préc.</span>
+            </div>
+            <div className="flex items-center gap-1.5 pt-1">
+              {totalRisks <= totalRisksPrev ? (
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  ↓ Amélioration (-{totalRisksPrev - totalRisks})
+                </span>
+              ) : (
+                <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-100 font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  ↑ Hausse (+{totalRisks - totalRisksPrev})
+                </span>
+              )}
+              <span className="text-slate-400 text-[9.5px]">Évolution du volume de menaces</span>
+            </div>
+          </div>
+
+          {/* Compare Avg Score */}
+          <div className="p-4 bg-slate-50 border border-slate-150 rounded-xl space-y-2">
+            <span className="text-[10px] text-slate-500 font-bold uppercase">Indice Net Moyen</span>
+            <div className="flex items-baseline gap-2.5">
+              <span className="text-2xl font-extrabold text-indigo-950">{avgResidualScore}</span>
+              <span className="text-xs text-slate-400">vs {avgResidualScorePrev} préc.</span>
+            </div>
+            <div className="flex items-center gap-1.5 pt-1">
+              {avgResidualScore <= avgResidualScorePrev ? (
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  ↓ Risque en baisse (-{Number((avgResidualScorePrev - avgResidualScore).toFixed(1))})
+                </span>
+              ) : (
+                <span className="text-[10px] bg-red-50 text-red-700 border border-red-100 font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  ↑ Risque accru (+{Number((avgResidualScore - avgResidualScorePrev).toFixed(1))})
+                </span>
+              )}
+              <span className="text-slate-400 text-[9.5px]">Indice de sévérité globale</span>
+            </div>
+          </div>
+
+          {/* Compare Action Completion */}
+          <div className="p-4 bg-slate-50 border border-slate-150 rounded-xl space-y-2">
+            <span className="text-[10px] text-slate-500 font-bold uppercase">Clôture des Actions de Mitigation</span>
+            <div className="flex items-baseline gap-2.5">
+              <span className="text-2xl font-extrabold text-slate-950">{actionCompletionRate}%</span>
+              <span className="text-xs text-slate-400">vs {actionCompletionRatePrev}% préc.</span>
+            </div>
+            <div className="flex items-center gap-1.5 pt-1">
+              {actionCompletionRate >= actionCompletionRatePrev ? (
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  ↑ Progrès de remédiation (+{actionCompletionRate - actionCompletionRatePrev}%)
+                </span>
+              ) : (
+                <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-100 font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  ↓ En retard (-{actionCompletionRatePrev - actionCompletionRate}%)
+                </span>
+              )}
+              <span className="text-slate-400 text-[9.5px]">Taux d'exécution du plan GRC</span>
+            </div>
           </div>
         </div>
       </div>
