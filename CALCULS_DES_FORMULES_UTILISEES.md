@@ -81,4 +81,15 @@ Les risques sont automatiquement classifiés selon trois niveaux de sévérité 
 ### Pour une Matrice 5x5 :
 - **🟢 Risque Faible (Vert)** : Score $C_B \text{ ou } C_R \in [1, 6]$
 - **🟡 Risque Modéré (Orange)** : Score $C_B \text{ ou } C_R \in [7, 14]$
-- **🔴 Risque Élevé (Rouge)** : Score $C_B \text{ ou } C_R \in [15, 25]$
+- **🔴 Risque Élevé (Rouge)** : Score $C_B \text{ ou } C_R \in [15, 25]$ *(Déclenche une alerte prioritaire immédiate expédiée par e-mail au Risk Manager et requiert un plan d'action d'urgence)*.
+
+---
+
+## 6. Règles de Déclenchement des Notifications E-mails Automatiques
+
+Lorsque le module **Serveur SMTP** est activé pour l'entreprise cliente, la plateforme exécute des règles d'expédition automatique :
+
+1. **Alerte Risque Critique** : Expédition instantanée d'un avis d'urgence si Score de Criticité $\ge 15/25$ (ou $\ge 10/16$).
+2. **Assignation de Plan d'Action** : Notification transmise au responsable nommé lors de l'attribution d'une tâche de mitigation.
+3. **Missions d'Audit** : Envoi automatique des convocations et avis de mission d'audit interne.
+4. **Clôture d'Exercice Fiscal** : Diffusion du bilan annuel consolidé lors de la clôture officielle par la Direction.

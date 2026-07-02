@@ -829,6 +829,7 @@ export default function App() {
                 onAddSession={handleAddSession}
                 onUpdateSession={handleUpdateSession}
                 licence={activeLicence}
+                onUpdateLicence={(updated) => setLicences(prev => prev.map(l => l.id === updated.id ? updated : l))}
                 tenantConfig={activeTenantConfig}
                 onAddLog={addAuditLog}
               />

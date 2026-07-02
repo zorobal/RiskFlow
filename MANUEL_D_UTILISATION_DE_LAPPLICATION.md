@@ -19,6 +19,19 @@ L'application s'ouvre sur le Portail de Connexion Sécurisé :
 
 Pour découvrir les fonctionnalités phares de la plateforme sans configuration préalable, cliquez sur **"Démonstration Interactive"** depuis le portail de connexion.
 
+### Polyvalence des Modes de Déploiement :
+1. **🌐 En Ligne (Cloud / SaaS Multi-Tenant)** : Solution hébergée accessible 24h/24 via navigateur web, avec étanchéité physique absolue (*Database-per-Tenant*) et gestion centralisée des souscriptions.
+2. **🏢 Réseau d'Entreprise (On-Premise / Intranet Private Cloud)** : Déploiement souverain au sein du réseau d'entreprise, garantissant un contrôle total des flux sans fuite externe et l'intégration aux annuaires internes.
+3. **💻 Usage Personnel & Local (Stand-Alone / Localhost)** : Exécution légère sur poste de travail individuel sans dépendance serveur, idéale pour les consultants, PME et audits déconnectés.
+
+### Focus : Module Optionnel 'Serveur Gmail / SMTP Dédié d'Entreprise' :
+- **Que fait ce module ?** : Permet à chaque entreprise cliente de configurer son propre canal d'expédition e-mail (Gmail d'entreprise avec mot de passe Google 16 lettres ou serveur SMTP interne). Il déclenche l'envoi d'**alertes automatiques instantanées** sur survenance de Risques Critiques ($\ge 15/25$), les notifications d'assignation de plans d'action et les convocations d'audits.
+- **Pourquoi est-il capital de le choisir ?** :
+  - **Souveraineté & Confidentialité Multi-Tenant** : Vos clés 16 lettres restent cloisonnées dans votre environnement propre.
+  - **Identité de Domaine & Délivrabilité** : Expédition au nom de votre entreprise (`@votre-domaine.com`), évitant le filtrage en indésirables (SPAM).
+  - **Réactivité d'Urgence** : Notification immédiate par e-mail sur les smartphones de la Direction et du Risk Manager en cas de crise.
+  - **Traçabilité Auditable** : Journal d'audit immuable des e-mails expédiés pour la conformité ISO 27001 et RGPD.
+
 ### Les 4 Scénarios Métiers Prêts à l'Emploi :
 1. **Scénario 1 : Administrateur de l'Entreprise Client** :
    - *Périmètre* : Configuration de la structure organisationnelle, attribution des rôles utilisateurs, ouverture et clôture officielle des sessions d'exercice annuel.
@@ -41,7 +54,7 @@ Accessible aux gestionnaires de la plateforme via la Console centrale :
 
 - **📊 Tableau de Bord (KPIs & Alertes)** : Suivi global des entreprises clientes actives, des modules souscrits et modification du mot de passe SuperAdmin.
 - **🔑 Comptes Accès Clients** : Création et attribution initiale des comptes utilisateurs pour les entreprises clientes avec mot de passe temporaire.
-- **🏢 Clients & Licences** : Gestion des contrats de souscription, prolongation des abonnements et quotas de risques.
+- **🏢 Clients & Licences (Gestion des Modules Souscrits)** : Gestion des contrats de souscription, prolongation des abonnements et activation/désactivation dynamique des options de licence (**Cartographie, Plans d'actions, Audit, Conformité, Reporting, Serveur SMTP**).
 - **📝 Logs & Audits Système** : Consultation du journal d'audit immuable des accès et interventions d'administration.
 
 ---
@@ -57,6 +70,7 @@ Navigation intuitive via le ruban d'applications supérieur :
 ### 🗺️ Cartographie des Risques & Cotations
 - Déclarez de nouveaux risques, attribuez un code unique (ex: `R-101`) et évaluez la probabilité et l'impact.
 - Le moteur GRC calcule la criticité résiduelle en appliquant la méthodologie du client (IFACI ou Mitigée).
+- **Avis E-mail d'Urgence Automatique** : La création ou modification d'un risque élevé (Score $\ge 15/25$) déclenche l'envoi immédiat d'une notification par e-mail aux responsables.
 
 ### 🔲 Matrice Risques (Heatmap)
 - Explorez la représentation graphique en 4x4 ou 5x5. Cliquez sur les cases pour filtrer les risques positionnés.
@@ -71,6 +85,11 @@ Navigation intuitive via le ruban d'applications supérieur :
 - **Utilisateurs & Habilitations** : Gérez les comptes de votre entreprise et attribuez les rôles (Analyste, Risk Manager, Direction).
 - **Organisation & Entités** : Modélisez la structure (Filiales, Départements, Divisions).
 - **Sessions & Exercices** : Créez une nouvelle session annuelle (ex: Exercice 2026) ou effectuez la **Clôture Officielle** avec rédaction du bilan annuel consolidé.
+- **📧 Serveur SMTP / Gmail (Configuration & Tests)** :
+  1. *Contrôle du Contrat de Licence* : Si le module n'est pas souscrit, un bouton permet de solliciter son déblocage auprès du SuperAdmin Commercial.
+  2. *Saisie des Identifiants* : Saisissez l'hôte (`smtp.gmail.com`), le port (587 ou 465), votre compte Google d'entreprise et le **Mot de Passe d'Application à 16 lettres** généré sur Google Account.
+  3. *Test de Connexion Réseau Réel* : Renseignez une adresse email et cliquez sur **🧪 Tester la Connexion SMTP** pour valider l'envoi et recevoir un e-mail de confirmation.
+  4. *Journal d'Audit des E-mails* : Consultez l'historique en temps réel des messages expédiés avec horodatage et statuts.
 
 ---
 

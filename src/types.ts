@@ -300,6 +300,9 @@ export interface Licence {
   nombre_succursales_actuel?: number; // Compteur calculé en temps réel (Section 10.2.2)
   depassementQuotaMode?: 'blocage' | 'inactif'; // Mode de dépassement de quota (Section 10.2.2)
   succursalesActives?: boolean; // Fonctionnalité succursales activée (Section 10.2.2)
+  demandeValidationSmtp?: boolean; // Demande d'activation transmise au SuperAdmin Commercial
+  dateDemandeSmtp?: string; // Horodatage de la soumission contractuelle
+  motifDemandeSmtp?: string; // Motif ou note transmise par le client
 }
 
 export interface HistoriqueLicence {

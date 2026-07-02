@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Sparkles, Shield, ArrowRight, Layers, Play, Check, 
-  ClipboardList, UserCheck, Building2, Calendar, FileText
+  ClipboardList, UserCheck, Building2, Calendar, FileText,
+  Globe, Server, Laptop, Mail, ShieldCheck, Zap, Key, CheckCircle2, Lock, Cpu, Info, AlertTriangle
 } from 'lucide-react';
 import { User, TenantConfig } from '../types';
 
@@ -268,6 +269,81 @@ export default function DemoModule({ users, tenants, onSelectScenario, onBackToL
           </div>
         </div>
 
+        {/* SECTION: Application Multi-Deployment Versatility Description */}
+        <section className="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-5 md:p-6 space-y-4 shadow-xl">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div className="flex items-center space-x-2.5">
+              <div className="p-2 bg-indigo-600/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-white tracking-wide">
+                  Polyvalence d'Utilisation & Modes de Déploiement de l'Application
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Adaptée aux exigences des grands groupes, des PME, des réseaux souverains d'entreprise et des usages locaux autonomes.
+                </p>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 bg-indigo-500/10 text-indigo-300 text-[10px] font-bold rounded-md border border-indigo-500/20">
+              Multi-Environnements
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+            {/* Deployment 1: Online SaaS */}
+            <div className="p-4 bg-slate-950/90 rounded-xl border border-slate-800/80 hover:border-indigo-500/40 transition-all space-y-2.5 shadow-md flex flex-col justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2 text-indigo-400">
+                  <Globe className="w-4 h-4 shrink-0" />
+                  <h4 className="font-bold text-xs text-white uppercase tracking-wider">1. En Ligne (Cloud / SaaS Multi-Tenant)</h4>
+                </div>
+                <p className="text-[11.5px] text-slate-300 leading-relaxed">
+                  Accessible 24h/24 via n'importe quel navigateur internet sécurisé. Garantit l'étanchéité physique absolue des données entre entreprises clientes (<em>Database-per-Tenant</em>) avec gestion dynamique des abonnements et des modules par le SuperAdmin.
+                </p>
+              </div>
+              <div className="pt-2 border-t border-slate-900 flex items-center justify-between text-[10px] text-indigo-300 font-mono">
+                <span>• Accès universel web</span>
+                <span>• Zero installation</span>
+              </div>
+            </div>
+
+            {/* Deployment 2: Enterprise Network */}
+            <div className="p-4 bg-slate-950/90 rounded-xl border border-slate-800/80 hover:border-purple-500/40 transition-all space-y-2.5 shadow-md flex flex-col justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2 text-purple-400">
+                  <Server className="w-4 h-4 shrink-0" />
+                  <h4 className="font-bold text-xs text-white uppercase tracking-wider">2. Réseau d'Entreprise (On-Premise / Intranet)</h4>
+                </div>
+                <p className="text-[11.5px] text-slate-300 leading-relaxed">
+                  Déploiement souverain au sein du réseau intranet ou du Cloud privé d'une grande entreprise (banques, assurances, industrie). Offre un contrôle total sur les serveurs, l'intégration aux annuaires d'entreprise et la confidentialité absolue des flux sans fuite externe.
+                </p>
+              </div>
+              <div className="pt-2 border-t border-slate-900 flex items-center justify-between text-[10px] text-purple-300 font-mono">
+                <span>• Intranet d'entreprise</span>
+                <span>• Souveraineté totale</span>
+              </div>
+            </div>
+
+            {/* Deployment 3: Personal Local */}
+            <div className="p-4 bg-slate-950/90 rounded-xl border border-slate-800/80 hover:border-teal-500/40 transition-all space-y-2.5 shadow-md flex flex-col justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2 text-teal-400">
+                  <Laptop className="w-4 h-4 shrink-0" />
+                  <h4 className="font-bold text-xs text-white uppercase tracking-wider">3. Usage Personnel & Local (Stand-Alone)</h4>
+                </div>
+                <p className="text-[11.5px] text-slate-300 leading-relaxed">
+                  Exécution légère et autonome directement sur un ordinateur portable ou un poste de travail individuel (Localhost). Idéal pour un consultant, un auditeur indépendant ou un usage personnel de modélisation de risques monosite sans dépendance serveur.
+                </p>
+              </div>
+              <div className="pt-2 border-t border-slate-900 flex items-center justify-between text-[10px] text-teal-300 font-mono">
+                <span>• Poste individuel</span>
+                <span>• Mode déconnecté</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Section 1: Scenarios Selection */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -444,6 +520,97 @@ export default function DemoModule({ users, tenants, onSelectScenario, onBackToL
             </div>
           </section>
         )}
+
+        {/* SECTION: Detailed Description & Importance of Option "Module Serveur Gmail / SMTP Dédié" */}
+        <section className="bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950/60 border-2 border-cyan-500/30 rounded-2xl p-5 md:p-6 space-y-5 shadow-2xl relative overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/20 pb-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-cyan-500/10 text-cyan-300 rounded-xl border border-cyan-500/30 shadow-inner">
+                <Mail className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 font-extrabold text-[9.5px] uppercase rounded border border-cyan-500/40">
+                    Module Optionnel de Licence
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">Soumis à validation SuperAdmin</span>
+                </div>
+                <h3 className="font-extrabold text-base text-white tracking-wide mt-0.5">
+                  Focus : Module "Serveur Gmail / SMTP Dédié d'Entreprise"
+                </h3>
+              </div>
+            </div>
+
+            <div className="px-3 py-1.5 bg-cyan-950/80 border border-cyan-500/30 rounded-lg text-cyan-300 text-[11px] font-bold flex items-center gap-2">
+              <Zap className="w-4 h-4 text-cyan-400 animate-pulse" />
+              <span>Notification Instantanée des Risques Critiques</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Box 1: What this module does */}
+            <div className="p-4 bg-slate-950/90 rounded-xl border border-slate-800 space-y-3">
+              <h4 className="font-bold text-xs uppercase tracking-wider text-cyan-300 flex items-center gap-2">
+                <Info className="w-4 h-4 text-cyan-400" />
+                <span>Que fait le Module Serveur SMTP Dédié ?</span>
+              </h4>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Ce module débloque l'interface d'administration réseau permettant à l'entreprise cliente de configurer son propre canal d'expédition de courriels électroniques (compte Google d'entreprise avec mot de passe d'application 16 lettres, Outlook ou serveur SMTP d'entreprise dédié).
+              </p>
+              <ul className="space-y-2 text-[11.5px] text-slate-300">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                  <span><strong>Alertes Automatiques de Risques Critiques :</strong> Expédition immédiate d'un message prioritaire aux responsables dès qu'un risque atteint ou dépasse le seuil de criticité (Score $\ge 15/25$).</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                  <span><strong>Assignation de Plans d'Actions :</strong> Notification automatique envoyée à l'agent responsable lors de l'attribution d'une tâche de remédiation.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                  <span><strong>Audits & Clôtures d'Exercices :</strong> Transmission automatique des avis de missions d'audits internes et diffusion du bilan annuel consolidé.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                  <span><strong>Journal d'Audit des E-mails :</strong> Traçabilité complète des envois avec horodatage, statut et identifiant de transaction pour les auditeurs.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Box 2: Why it is essential to choose it */}
+            <div className="p-4 bg-slate-950/90 rounded-xl border border-cyan-500/20 space-y-3">
+              <h4 className="font-bold text-xs uppercase tracking-wider text-amber-300 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <span>Pourquoi est-il capital de Choisir & Activer ce Module ?</span>
+              </h4>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                L'activation de ce module est une décision stratégique essentielle pour la sécurité et la gouvernance de l'organisation :
+              </p>
+              <div className="space-y-2.5 text-[11.5px] text-slate-300">
+                <div className="p-2.5 bg-slate-900/80 rounded-lg border border-slate-800">
+                  <strong className="text-cyan-300 font-bold block mb-0.5">🔒 1. Confidentialité & Souveraineté Multi-Tenant Absolute</strong>
+                  <p className="text-slate-300 text-[11px] leading-normal">
+                    Vos identifiants de messagerie et clés 16 lettres ne sont jamais partagés sur un serveur tiers. Votre entreprise utilise exclusivement son canal hermétique.
+                  </p>
+                </div>
+
+                <div className="p-2.5 bg-slate-900/80 rounded-lg border border-slate-800">
+                  <strong className="text-emerald-300 font-bold block mb-0.5">🏷️ 2. Identity Branding & Délivrabilité Maximale</strong>
+                  <p className="text-slate-300 text-[11px] leading-normal">
+                    Les e-mails arrivent au nom de votre propre domaine officiel (ex: <code>risques@votre-entreprise.com</code>), évitant d'être filtrés en indésirable (SPAM).
+                  </p>
+                </div>
+
+                <div className="p-2.5 bg-slate-900/80 rounded-lg border border-slate-800">
+                  <strong className="text-amber-300 font-bold block mb-0.5">⚡ 3. Temps de Réaction Instantané (Alerte Risque Majeur)</strong>
+                  <p className="text-slate-300 text-[11px] leading-normal">
+                    Sans SMTP, les alertes sont uniquement visibles à l'écran. Avec ce module, la Direction et le Risk Manager reçoivent un e-mail immédiat sur leur smartphone en cas de crise.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
       </main>
 

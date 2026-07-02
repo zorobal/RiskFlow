@@ -2269,6 +2269,94 @@ export default function SuperAdminModule({
         {/* ==================== TAB: LICENCES & CONTRACTS ==================== */}
         {activeTab === 'licences' && (
           <div className="space-y-6 animate-fade-in">
+
+            {/* Pending Module Validation Requests Banner for SuperAdmin Commercial */}
+            {licences.filter(l => l.demandeValidationSmtp).length > 0 && (
+              <div className="bg-gradient-to-r from-amber-950/80 via-slate-900 to-indigo-950/80 border-2 border-amber-500/40 rounded-xl p-5 space-y-3 shadow-xl">
+                <div className="flex items-center justify-between border-b border-amber-500/20 pb-2.5">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-3 h-3 rounded-full bg-amber-400 animate-ping"></span>
+                    <h4 className="font-bold text-sm text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-amber-400" />
+                      Demandes de Validation Contractuelle en Attente ({licences.filter(l => l.demandeValidationSmtp).length})
+                    </h4>
+                  </div>
+                  <span className="px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 font-bold text-xs border border-amber-500/30">
+                    SuperAdmin Commercial / Contrat & Licence
+                  </span>
+                </div>
+
+                <p className="text-slate-300 text-xs">
+                  Les entreprises suivantes ont soumis une demande d'activation et d'homologation du <strong>Module Serveur Gmail SMTP Dédié</strong>. Cliquez sur <strong>Approuver</strong> pour valider l'avenant au contrat et débloquer l'accès pour le client.
+                </p>
+
+                <div className="space-y-2">
+                  {licences.filter(l => l.demandeValidationSmtp).map((pendingLic) => {
+                    const company = entreprises.find(c => c.id === pendingLic.entrepriseId);
+                    return (
+                      <div key={pendingLic.id} className="p-3.5 bg-slate-950 rounded-lg border border-amber-500/30 flex flex-wrap justify-between items-center gap-3">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <strong className="text-white text-xs font-bold">{company?.raisonSociale || pendingLic.entrepriseId}</strong>
+                            <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-mono">
+                              Licence #{pendingLic.id}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400">
+                            Demande transmise le : <span className="text-slate-200 font-mono">{pendingLic.dateDemandeSmtp ? new Date(pendingLic.dateDemandeSmtp).toLocaleString('fr-FR') : 'Date récente'}</span>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updatedModules = Array.from(new Set([...pendingLic.modulesActives, 'Serveur SMTP' as const]));
+                              const updated = {
+                                ...pendingLic,
+                                modulesActives: updatedModules,
+                                demandeValidationSmtp: false
+                              };
+                              onUpdateLicences(prev => prev.map(l => l.id === pendingLic.id ? updated : l));
+
+                              const newHist: HistoriqueLicence = {
+                                id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+                                licenceId: pendingLic.id,
+                                typeChangement: 'Ajout de module',
+                                dateChangement: new Date().toISOString().split('T')[0],
+                                effectuePar: 'SuperAdministrateur Commercial / Contrat & Licence',
+                                details: `Approbation et validation contractuelle du module Serveur SMTP pour ${company?.raisonSociale || pendingLic.entrepriseId}.`
+                              };
+                              onUpdateHistoriqueLicences(h => [newHist, ...h]);
+                              addSystemLog('Validation Licence', `Avenant contractuel validé : Module Serveur SMTP activé pour ${company?.raisonSociale}`, 'Succès');
+                            }}
+                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs shadow flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            ✅ Approuver & Valider le Contrat
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = {
+                                ...pendingLic,
+                                demandeValidationSmtp: false
+                              };
+                              onUpdateLicences(prev => prev.map(l => l.id === pendingLic.id ? updated : l));
+                              addSystemLog('Refus Licence', `Demande d'activation du module SMTP refusée pour ${company?.raisonSociale}`, 'Alerte');
+                            }}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded text-xs cursor-pointer"
+                          >
+                            Refuser
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Grid of Licences */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {licences.map((lic) => {

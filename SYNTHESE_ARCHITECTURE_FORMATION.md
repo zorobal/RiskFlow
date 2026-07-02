@@ -63,9 +63,9 @@ Pour permettre une traçabilité pluriannuelle et des comparatifs d'exposition d
 
 ---
 
-## 3. Étanchéité Multi-Tenant (Vercel & Supabase)
+## 3. Étanchéité Multi-Tenant (Vercel, Express Backend & Supabase)
 
-Sogesti GRC applique un modèle d'isolation strict à deux niveaux :
+Sogesti GRC applique un modèle d'isolation strict à trois niveaux :
 
 ```
                   ┌──────────────────────┐
@@ -84,10 +84,18 @@ Sogesti GRC applique un modèle d'isolation strict à deux niveaux :
 │  - Risques Client A   │         │  - Risques Client B   │
 │  - Utilisateurs A     │         │  - Utilisateurs B     │
 └───────────────────────┘         └───────────────────────┘
+            │                                 │
+            ▼                                 ▼
+┌───────────────────────┐         ┌───────────────────────┐
+│ Service SMTP Client A │         │ Service SMTP Client B │ (Serveurs Gmail / SMTP isolés par tenant)
+│  - smtp.sogesti@...   │         │  - smtp.aerotech@...  │
+│  - Logs emails A      │         │  - Logs emails B      │
+└───────────────────────┘         └───────────────────────┘
 ```
 
 1. **Isolation Frontend (Vercel Edge)** : Le middleware identifie le tenant via le sous-domaine ou le jeton de session.
 2. **Database-per-Tenant (Supabase)** : Chaque client dispose d'une base PostgreSQL dédiée, éliminant tout risque de fuite inter-entreprises.
+3. **Isolation des Serveurs SMTP & Identifiants d'Expédition (Express Backend)** : Le moteur Express gère un dictionnaire de configurations et de transports Nodemailer étanches par `tenantId` (`tenantSmtpConfigs[tenantId]`), garantissant que les mots de passe Google 16 lettres et le journal des e-mails expédiés sont cloisonnés.
 
 ---
 
@@ -97,9 +105,9 @@ La plateforme définit 5 grands profils d'utilisateurs :
 
 | Rôle | Périmètre & Droits Principaux |
 | :--- | :--- |
-| **SuperAdmin (Console)** | Supervise l'infrastructure globale, gère les abonnements des entreprises clientes, attribue les comptes accès clients, simule le MFA et les sauvegardes. |
-| **Administrateur Entreprise Client** | Administre la structure interne du tenant : gestion des utilisateurs, rôles, divisions, création et clôture officielle des sessions d'exercice annuel. |
-| **Risk Manager** | Pilote la cartographie des risques, choisit les méthodologies (IFACI / Mitigée), valide les cotations et assigne les plans d'actions. |
+| **SuperAdmin (Console)** | Supervise l'infrastructure globale, gère les abonnements et contrats de licence (activation des modules : Cartographie, Plans d'action, Audit, Conformité, Reporting, **Serveur SMTP**), attribue les comptes accès clients, simule le MFA et les sauvegardes. |
+| **Administrateur Entreprise Client** | Administrateur du tenant : gestion des utilisateurs, rôles, divisions, création et clôture officielle des sessions d'exercice annuel, **configuration du serveur Gmail SMTP d'entreprise (avec clé 16 lettres), tests de connexion et journal d'audit des e-mails**. |
+| **Risk Manager** | Pilote la cartographie des risques, choisit les méthodologies (IFACI / Mitigée), valide les cotations, déclenche l'envoi d'alertes e-mails automatiques sur risques critiques ($\ge 15/25$) et assigne les plans d'actions. |
 | **Analyste (Terrain)** | Saisit les fiches d'incidents, déclare les déviations de conformité et met à jour l'avancement des actions correctives. |
 | **Direction Générale & Auditeur Chef** | Consulte le tableau de bord exécutif, valide les rapports d'exposition, examine les constats d'audits et signe la clôture annuelle. |
 
@@ -107,9 +115,10 @@ La plateforme définit 5 grands profils d'utilisateurs :
 
 ## 5. Scénarios de Démonstration Interactive
 
-Le module de démonstration interactive propose 4 scénarios guidés avec cas pratiques pas-à-pas :
+Le module de démonstration interactive propose 5 scénarios guidés avec cas pratiques pas-à-pas :
 
 1. **Scénario 1 : Administrateur de l'Entreprise Client** (Habilitations, organisation, sessions et clôture d'exercice).
 2. **Scénario 2 : Risk Manager de Sogesti S.A.** (Cotation IFACI 4x4 $F \times I \times M$, plans de mitigation, filtres d'exercice fiscal).
 3. **Scénario 3 : Analyste d'AeroTech (Terrain)** (Formule mitigée soustraite $P \times I - M$ sur grille 5x5, incidents de calibrage).
 4. **Scénario 4 : Direction Générale & Auditeur Chef** (Constats d'audits internes, liasse de reporting et approbation stratégique).
+5. **Scénario 5 : SuperAdmin Commercial & Serveur Gmail SMTP Dédié** (Activation de l'option de licence SMTP, paramétrage du serveur d'envoi d'entreprise avec clé Google 16 lettres, test de connexion en direct et traçabilité des alertes).

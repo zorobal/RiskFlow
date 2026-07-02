@@ -46,6 +46,7 @@ interface AdminModuleProps {
   onAddSession: (s: SessionExercice) => void;
   onUpdateSession: (s: SessionExercice) => void;
   licence?: Licence;
+  onUpdateLicence?: (licence: Licence) => void;
   tenantConfig?: TenantConfig;
   onAddLog?: (category: string, details: string) => void;
 }
@@ -64,6 +65,7 @@ export default function AdminModule({
   onAddSession,
   onUpdateSession,
   licence,
+  onUpdateLicence,
   tenantConfig,
   onAddLog
 }: AdminModuleProps) {
@@ -1018,18 +1020,79 @@ export default function AdminModule({
                     </div>
                   </div>
 
-                  {licenseUpgradeRequested ? (
-                    <div className="p-4 bg-emerald-900/40 border border-emerald-500/30 rounded-lg text-emerald-200 text-xs font-semibold flex items-center justify-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                      Demande d'activation transmise avec succès au SuperAdmin Commercial. La fonctionnalité sera débloquée dès mise à jour de votre contrat de licence.
+                  { (licenseUpgradeRequested || licence?.demandeValidationSmtp) ? (
+                    <div className="p-5 bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950/80 border border-indigo-500/30 rounded-xl text-left space-y-3 shadow-lg">
+                      <div className="flex items-center justify-between border-b border-indigo-500/20 pb-2.5">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                          <h5 className="font-bold text-xs uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                            <ShieldCheck className="w-4 h-4 text-amber-400" />
+                            Demande Transmise au SuperAdministrateur Contrat & Licence
+                          </h5>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                          Réf: REQ-SMTP-{(activeTenantId || 'T1').toUpperCase()}
+                        </span>
+                      </div>
+
+                      <p className="text-slate-300 text-xs leading-relaxed">
+                        Cette fonctionnalité d'envoi e-mail SMTP est soumise à la <strong>validation et à la signature du contrat de licence</strong> par le SuperAdministrateur Commercial (SuperAdmin). Votre demande est enregistrée.
+                      </p>
+
+                      <div className="p-3 bg-slate-950/90 rounded-lg border border-slate-800/80 flex flex-wrap justify-between items-center gap-2 text-[11px]">
+                        <div className="text-slate-400">
+                          <span>Date de soumission : </span>
+                          <strong className="text-white font-mono">{licence?.dateDemandeSmtp ? new Date(licence.dateDemandeSmtp).toLocaleString('fr-FR') : 'À l\'instant'}</strong>
+                        </div>
+                        <div className="text-amber-400 font-semibold flex items-center gap-1">
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                          En attente de validation SuperAdmin Commercial
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (licence && onUpdateLicence) {
+                              const updatedModules = Array.from(new Set([...(licence.modulesActives || []), 'Serveur SMTP' as const]));
+                              onUpdateLicence({
+                                ...licence,
+                                modulesActives: updatedModules,
+                                demandeValidationSmtp: false
+                              });
+                            }
+                            if (onAddLog) {
+                              onAddLog('Administration', `Validation et homologation immédiate de la licence SMTP effectuée pour ${tenantConfig?.companyName || activeTenantId}`);
+                            }
+                          }}
+                          className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-lg shadow transition text-[11px] cursor-pointer flex items-center gap-1.5"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          ⚡ Valider & Approuver le Contrat SMTP (Simulation SuperAdmin)
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <button
-                      onClick={() => setLicenseUpgradeRequested(true)}
+                      onClick={() => {
+                        if (licence && onUpdateLicence) {
+                          onUpdateLicence({
+                            ...licence,
+                            demandeValidationSmtp: true,
+                            dateDemandeSmtp: new Date().toISOString(),
+                            motifDemandeSmtp: `Demande d'activation du module Serveur Gmail SMTP Dédié pour ${tenantConfig?.companyName || activeTenantId}`
+                          });
+                        }
+                        setLicenseUpgradeRequested(true);
+                        if (onAddLog) {
+                          onAddLog('Administration', `Soumission d'une demande d'activation du module Serveur SMTP à la validation du SuperAdministrateur Contrat & Licence`);
+                        }
+                      }}
                       className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-lg hover:shadow-indigo-500/25 transition text-xs cursor-pointer inline-flex items-center gap-2"
                     >
                       <Mail className="w-4 h-4" />
-                      📩 Solliciter l'Activation du Module auprès de l'Administrateur Commercial
+                      📩 Soumettre la Demande d'Activation au SuperAdministrateur Contrat & Licence
                     </button>
                   )}
                 </div>
