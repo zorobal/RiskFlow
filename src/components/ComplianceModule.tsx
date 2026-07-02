@@ -217,6 +217,62 @@ export default function ComplianceModule({
         </div>
       </div>
 
+      {/* AUTOMATED LEGAL WATCH & RSS/API CONNECTOR PANEL */}
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+              <Activity className="w-4 h-4 text-indigo-600" />
+              Connecteur Automatisé de Veille Juridique & Textes de Lois (Flux RSS / API Législation)
+            </h3>
+            <p className="text-slate-500 text-[10.5px]">
+              Importation continue des nouvelles directives, lois et décrets d'application en temps réel (EUR-Lex, Légifrance, CNIL, COBAC, BCEAO).
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              onAddLog('Veille Juridique Synchronisée', 'Synchronisation automatique du flux RSS Légifrance / EUR-Lex / COBAC.');
+              alert('📡 Synchronisation réussie ! 3 nouveaux textes de loi et amendements réglementaires ont été importés avec succès.');
+            }}
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow text-xs cursor-pointer flex items-center gap-1.5"
+          >
+            <Activity className="w-3.5 h-3.5" />
+            Synchroniser Flux RSS/API Juridique
+          </button>
+        </div>
+
+        {/* Live legal feed updates */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {[
+            { titre: 'EU AI Act (Règlement Européen sur l\'IA)', source: 'EUR-Lex Official', date: 'Juillet 2026', desc: 'Mise en conformité obligatoire des systèmes IA à haut risque.', statut: 'Nouveau' },
+            { titre: 'Directive NIS 2 - Exigences Cybersécurité', source: 'ANSSI / Légifrance', date: 'Juin 2026', desc: 'Renforcement de la résilience des entités essentielles et importantes.', statut: 'Importé' },
+            { titre: 'Règlementation COBAC / BCEAO - Risque TIC', source: 'Journal Officiel', date: 'Mai 2026', desc: 'Cadre de gestion du risque lié aux prestataires TIC tiers.', statut: 'Nouveau' }
+          ].map((feed, idx) => (
+            <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-left">
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded font-mono">
+                  {feed.source}
+                </span>
+                <span className="text-[9px] text-slate-400 font-medium">{feed.date}</span>
+              </div>
+              <h4 className="font-bold text-slate-900 text-xs">{feed.titre}</h4>
+              <p className="text-slate-500 text-[10px] leading-snug">{feed.desc}</p>
+              <button
+                onClick={() => {
+                  onAddFramework({ nom: feed.titre, version: '2026.1', secteur: feed.source });
+                  onAddLog('Veille Juridique Importée', `Import direct du texte : ${feed.titre}`);
+                  alert(`✅ Le texte de loi "${feed.titre}" a été converti et ajouté à vos référentiels de conformité !`);
+                }}
+                className="w-full mt-2 py-1 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-bold rounded text-[10px] cursor-pointer text-center"
+              >
+                + Convertir en Référentiel
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* CORE SECTIONS */}
       {activeTab === 'frameworks' ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

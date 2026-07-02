@@ -20,7 +20,8 @@ import {
   Trash2,
   Copy,
   History,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Boxes
 } from 'lucide-react';
 import { Risk, TenantConfig, User, ActionPlan } from '../types';
 
@@ -51,7 +52,7 @@ export default function RiskMappingModule({
   onAddActionPlan,
   onAddLog
 }: RiskMappingModuleProps) {
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'graph'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedEntity, setSelectedEntity] = useState<string>('all');
@@ -82,11 +83,25 @@ export default function RiskMappingModule({
   // History comments
   const [historyComment, setHistoryComment] = useState('');
 
+  // Safe fallbacks for props and config
+  const safeRisks = risks || [];
+  const safeActions = actions || [];
+  const safeUsers = users || [];
+  const categories = tenantConfig?.categories || [];
+  const entities = tenantConfig?.entities || [];
+  const workflowSteps = tenantConfig?.workflowSteps || [];
+  const matrixThresholds = tenantConfig?.matrixThresholds || [];
+  const frequencyScales = tenantConfig?.scales?.frequency || [];
+  const impactScales = tenantConfig?.scales?.impact || [];
+  const controlScales = tenantConfig?.scales?.control || [];
+  const formulaExpr = tenantConfig?.formula?.expression || '(P * I) * M';
+
   // Filter risks
-  const filteredRisks = risks.filter(r => {
-    const matchSearch = r.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                        r.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        r.description.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredRisks = safeRisks.filter(r => {
+    if (!r) return false;
+    const matchSearch = (r.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                        (r.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        (r.description || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchCat = selectedCategory === 'all' || r.categoryId === selectedCategory;
     const matchEntity = selectedEntity === 'all' || r.entityId === selectedEntity;
     const matchStatus = selectedStatus === 'all' || r.statusId === selectedStatus;
@@ -95,21 +110,24 @@ export default function RiskMappingModule({
   });
 
   const getCriticality = (score: number) => {
-    const found = tenantConfig.matrixThresholds.find(t => score >= t.minScore && score <= t.maxScore);
-    return found || tenantConfig.matrixThresholds[0];
+    if (!matrixThresholds || matrixThresholds.length === 0) {
+      return { level: 'Indéfini', color: '#e2e8f0', textColor: '#1e293b', label: 'Indéfini', minScore: 0, maxScore: 25 };
+    }
+    const found = matrixThresholds.find(t => score >= t.minScore && score <= t.maxScore);
+    return found || matrixThresholds[0] || { level: 'Indéfini', color: '#e2e8f0', textColor: '#1e293b', label: 'Indéfini', minScore: 0, maxScore: 25 };
   };
 
   const handleOpenEdit = (risk: Risk) => {
     setSelectedRisk(risk);
     setIsCreating(false);
-    setFormTitle(risk.title);
-    setFormDesc(risk.description);
-    setFormCategory(risk.categoryId);
-    setFormEntity(risk.entityId);
-    setFormFreq(risk.frequencyValue);
-    setFormImpact(risk.impactValue);
-    setFormControl(risk.controlValue);
-    setFormStatus(risk.statusId);
+    setFormTitle(risk.title || '');
+    setFormDesc(risk.description || '');
+    setFormCategory(risk.categoryId || '');
+    setFormEntity(risk.entityId || '');
+    setFormFreq(risk.frequencyValue || 1);
+    setFormImpact(risk.impactValue || 1);
+    setFormControl(risk.controlValue || 1);
+    setFormStatus(risk.statusId || '');
     setShowAddAction(false);
   };
 
@@ -118,12 +136,12 @@ export default function RiskMappingModule({
     setSelectedRisk(null);
     setFormTitle('');
     setFormDesc('');
-    setFormCategory(tenantConfig.categories[0]?.id || '');
-    setFormEntity(tenantConfig.entities[0]?.id || '');
+    setFormCategory(categories[0]?.id || '');
+    setFormEntity(entities[0]?.id || '');
     setFormFreq(1);
     setFormImpact(1);
     setFormControl(1);
-    setFormStatus(tenantConfig.workflowSteps[0]?.id || 'w_brouillon');
+    setFormStatus(workflowSteps[0]?.id || 'w_brouillon');
     setShowAddAction(false);
   };
 
@@ -282,6 +300,14 @@ export default function RiskMappingModule({
               >
                 <Grid3X3 className="w-3.5 h-3.5" />
               </button>
+              <button 
+                onClick={() => setViewMode('graph')}
+                className={`p-1.5 rounded transition flex items-center gap-1 text-[10px] ${viewMode === 'graph' ? 'bg-white shadow-sm text-indigo-600 font-bold' : 'hover:bg-slate-50'}`}
+                title="Graphe de Dépendances Processus Métiers"
+              >
+                <Boxes className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Graphe Processus</span>
+              </button>
             </div>
           </div>
 
@@ -299,7 +325,7 @@ export default function RiskMappingModule({
         </div>
 
         {/* Modular filters ribbon */}
-        <div className={`grid grid-cols-1 ${(isSuperAdminMode || tenantConfig.showWorkflowFilter) ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3 p-3 bg-white rounded-lg border border-slate-200 shadow-sm`}>
+        <div className={`grid grid-cols-1 ${(isSuperAdminMode || tenantConfig?.showWorkflowFilter) ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3 p-3 bg-white rounded-lg border border-slate-200 shadow-sm`}>
           <div>
             <label className="text-[10px] text-slate-400 font-bold block h-4">Catégorie</label>
             <select
@@ -308,7 +334,7 @@ export default function RiskMappingModule({
               className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded px-2 py-1 w-full"
             >
               <option value="all">Toutes</option>
-              {tenantConfig.categories.map(c => (
+              {categories.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
@@ -321,12 +347,12 @@ export default function RiskMappingModule({
               className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded px-2 py-1 w-full"
             >
               <option value="all">Tous</option>
-              {tenantConfig.entities.map(e => (
+              {entities.map(e => (
                 <option key={e.id} value={e.id}>{e.name}</option>
               ))}
             </select>
           </div>
-          {(isSuperAdminMode || tenantConfig.showWorkflowFilter) && (
+          {(isSuperAdminMode || tenantConfig?.showWorkflowFilter) && (
             <div>
               <label className="text-[10px] text-slate-400 font-bold block h-4">Étape Workflow</label>
               <select
@@ -335,7 +361,7 @@ export default function RiskMappingModule({
                 className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded px-2 py-1 w-full"
               >
                 <option value="all">Tous</option>
-                {tenantConfig.workflowSteps.map(s => (
+                {workflowSteps.map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
@@ -374,9 +400,9 @@ export default function RiskMappingModule({
                 <tbody className="divide-y divide-slate-100">
                   {filteredRisks.map((risk) => {
                     const crit = getCriticality(risk.scoreResiduel);
-                    const category = tenantConfig.categories.find(c => c.id === risk.categoryId);
-                    const entity = tenantConfig.entities.find(e => e.id === risk.entityId);
-                    const step = tenantConfig.workflowSteps.find(s => s.id === risk.statusId);
+                    const category = categories.find(c => c.id === risk.categoryId);
+                    const entity = entities.find(e => e.id === risk.entityId);
+                    const step = workflowSteps.find(s => s.id === risk.statusId);
                     
                     return (
                       <tr 
@@ -436,13 +462,13 @@ export default function RiskMappingModule({
               </table>
             </div>
           </div>
-        ) : (
+        ) : viewMode === 'kanban' ? (
           /* Kanban Board layout */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredRisks.map((risk) => {
               const crit = getCriticality(risk.scoreResiduel);
-              const category = tenantConfig.categories.find(c => c.id === risk.categoryId);
-              const entity = tenantConfig.entities.find(e => e.id === risk.entityId);
+              const category = categories.find(c => c.id === risk.categoryId);
+              const entity = entities.find(e => e.id === risk.entityId);
               
               return (
                 <div 
@@ -480,6 +506,117 @@ export default function RiskMappingModule({
               );
             })}
           </div>
+        ) : (
+          /* Multi-Level Process Dependency Graph View */
+          <div className="space-y-6">
+            <div className="p-4 bg-indigo-900 text-white rounded-xl shadow-md space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Boxes className="w-5 h-5 text-indigo-300" />
+                  <h3 className="font-bold text-sm text-indigo-100">Graphe Visuel de Dépendances Multi-Niveaux des Processus Métiers</h3>
+                </div>
+                <span className="bg-indigo-800 text-indigo-200 font-mono text-[9px] px-2 py-0.5 rounded border border-indigo-700 font-bold">
+                  Indépendant des Entités
+                </span>
+              </div>
+              <p className="text-[11px] text-indigo-200 leading-relaxed">
+                Représentation sous forme d'arborescence des processus transversaux de l'organisation : <strong className="text-white">Processus Métiers ➔ Sous-processus ➔ Risques Identifiés ➔ Dispositifs de Contrôle Interne</strong>.
+              </p>
+            </div>
+
+            {/* Tree Nodes for Business Processes */}
+            <div className="space-y-4">
+              {[
+                {
+                  code: 'PROC-01',
+                  nom: 'Gestion des Ventes & Relation Client GRC',
+                  pilote: 'Direction Commerciale',
+                  sousProcessus: [
+                    { code: 'SP-1.1', nom: 'Prise de commande et Validation de solvabilité', risques: safeRisks.slice(0, 2) },
+                    { code: 'SP-1.2', nom: 'Facturation client et Suivi des créances', risques: safeRisks.slice(2, 3) }
+                  ]
+                },
+                {
+                  code: 'PROC-02',
+                  nom: 'Sécurité de l\'Information & Infrastructures Cloud',
+                  pilote: 'Direction de la Sécurité (RSSI)',
+                  sousProcessus: [
+                    { code: 'SP-2.1', nom: 'Gestion des accès et des identités privilégiées', risques: safeRisks.slice(1, 3) },
+                    { code: 'SP-2.2', nom: 'Sauvegardes et Plan de Continuité d\'Activité (PCA)', risques: safeRisks.slice(0, 1) }
+                  ]
+                },
+                {
+                  code: 'PROC-03',
+                  nom: 'Gestion de la Trésorerie & Engagements Financiers',
+                  pilote: 'Direction Financière',
+                  sousProcessus: [
+                    { code: 'SP-3.1', nom: 'Paiement des fournisseurs et Rapprochement bancaire', risques: safeRisks.slice(3, 5) }
+                  ]
+                }
+              ].map((proc) => (
+                <div key={proc.code} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:border-indigo-300 transition space-y-4">
+                  {/* Process Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="font-mono text-xs font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100">
+                        {proc.code}
+                      </span>
+                      <h4 className="font-bold text-slate-900 text-xs">{proc.nom}</h4>
+                    </div>
+                    <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-medium">
+                      Pilote : {proc.pilote}
+                    </span>
+                  </div>
+
+                  {/* Sub-processes tree children */}
+                  <div className="pl-4 border-l-2 border-indigo-200 space-y-3">
+                    {proc.sousProcessus.map((sp) => (
+                      <div key={sp.code} className="bg-slate-50/70 p-3 rounded-lg border border-slate-200 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[10px] font-bold bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded">
+                            {sp.code}
+                          </span>
+                          <strong className="text-slate-800 text-[11px]">{sp.nom}</strong>
+                        </div>
+
+                        {/* Linked Risks in sub-process */}
+                        <div className="pt-1 pl-3 border-l border-slate-300 space-y-1.5">
+                          <span className="text-[9px] text-slate-400 font-bold uppercase block">
+                            Risques Rattachés à ce Sous-Processus ({sp.risques.length}) :
+                          </span>
+                          {sp.risques.length === 0 ? (
+                            <span className="text-slate-400 text-[10px] italic">Aucun risque directement rattaché.</span>
+                          ) : (
+                            sp.risques.map((r) => {
+                              const crit = getCriticality(r.scoreResiduel);
+                              return (
+                                <div 
+                                  key={r.id} 
+                                  onClick={() => handleOpenEdit(r)}
+                                  className="bg-white p-2 rounded border border-slate-200 flex items-center justify-between cursor-pointer hover:bg-indigo-50/30 transition"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-[9px] font-bold text-indigo-600">{r.id}</span>
+                                    <span className="text-[10.5px] font-semibold text-slate-800">{r.title}</span>
+                                  </div>
+                                  <span 
+                                    className="px-1.5 py-0.2 rounded text-[9px] font-bold border"
+                                    style={{ backgroundColor: crit.color, color: crit.textColor }}
+                                  >
+                                    Net : {r.scoreResiduel}
+                                  </span>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
@@ -496,7 +633,7 @@ export default function RiskMappingModule({
             {/* Clickable Status Bar */}
             {!isCreating && (
               <div className="flex items-center space-x-0.5 text-[9px] font-bold uppercase">
-                {tenantConfig.workflowSteps.map((s, index) => {
+                {workflowSteps.map((s, index) => {
                   const isActive = selectedRisk?.statusId === s.id;
                   return (
                     <button
@@ -508,7 +645,7 @@ export default function RiskMappingModule({
                           : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
-                      {s.name.substring(2)}
+                      {s.name ? s.name.substring(2) : s.id}
                     </button>
                   );
                 })}
@@ -548,7 +685,7 @@ export default function RiskMappingModule({
                   onChange={(e) => setFormCategory(e.target.value)}
                   className="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded p-2 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 >
-                  {tenantConfig.categories.map(c => (
+                  {categories.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
@@ -561,7 +698,7 @@ export default function RiskMappingModule({
                   onChange={(e) => setFormEntity(e.target.value)}
                   className="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded p-2 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 >
-                  {tenantConfig.entities.map(ent => (
+                  {entities.map(ent => (
                     <option key={ent.id} value={ent.id}>{ent.name}</option>
                   ))}
                 </select>
@@ -572,7 +709,7 @@ export default function RiskMappingModule({
             <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl space-y-3">
               <h4 className="font-bold text-xs text-indigo-600 uppercase border-b border-indigo-200 pb-1 flex items-center gap-1">
                 <Wrench className="w-3.5 h-3.5" />
-                Évaluation (Formule: {tenantConfig.formula.expression})
+                Évaluation (Formule: {formulaExpr})
               </h4>
               
               {/* Variable 1: Probability */}
@@ -586,14 +723,14 @@ export default function RiskMappingModule({
                   onChange={(e) => setFormFreq(Number(e.target.value))}
                   className="w-full bg-white border border-slate-200 text-slate-700 text-xs rounded p-1.5"
                 >
-                  {tenantConfig.scales.frequency.map(item => (
+                  {frequencyScales.map(item => (
                     <option key={item.value} value={item.value}>
                       Cotation {item.value} : {item.label}
                     </option>
                   ))}
                 </select>
                 <p className="text-[9px] text-slate-400 italic">
-                  {tenantConfig.scales.frequency.find(f => f.value === formFreq)?.description}
+                  {frequencyScales.find(f => f.value === formFreq)?.description}
                 </p>
               </div>
 
@@ -608,14 +745,14 @@ export default function RiskMappingModule({
                   onChange={(e) => setFormImpact(Number(e.target.value))}
                   className="w-full bg-white border border-slate-200 text-slate-700 text-xs rounded p-1.5"
                 >
-                  {tenantConfig.scales.impact.map(item => (
+                  {impactScales.map(item => (
                     <option key={item.value} value={item.value}>
                       Cotation {item.value} : {item.label}
                     </option>
                   ))}
                 </select>
                 <p className="text-[9px] text-slate-400 italic">
-                  {tenantConfig.scales.impact.find(f => f.value === formImpact)?.description}
+                  {impactScales.find(f => f.value === formImpact)?.description}
                 </p>
               </div>
 
@@ -630,14 +767,14 @@ export default function RiskMappingModule({
                   onChange={(e) => setFormControl(Number(e.target.value))}
                   className="w-full bg-white border border-slate-200 text-slate-700 text-xs rounded p-1.5"
                 >
-                  {tenantConfig.scales.control.map(item => (
+                  {controlScales.map(item => (
                     <option key={item.value} value={item.value}>
                       Cotation {item.value} : {item.label}
                     </option>
                   ))}
                 </select>
                 <p className="text-[9px] text-slate-400 italic">
-                  {tenantConfig.scales.control.find(f => f.value === formControl)?.description}
+                  {controlScales.find(f => f.value === formControl)?.description}
                 </p>
               </div>
 
@@ -649,7 +786,7 @@ export default function RiskMappingModule({
                 <div className="text-right">
                   <span className="text-[9px] text-slate-400 font-bold block uppercase leading-none">Score Net / Résiduel</span>
                   <span className="font-extrabold text-red-600 text-lg font-mono">
-                    {tenantConfig.formula.expression === '(P * I) - M' 
+                    {formulaExpr === '(P * I) - M' 
                       ? Math.max(0, (formFreq * formImpact) - formControl) 
                       : (formFreq * formImpact * formControl)}
                   </span>
@@ -666,7 +803,7 @@ export default function RiskMappingModule({
                   onChange={(e) => setFormStatus(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-xs rounded p-2 focus:outline-none focus:border-indigo-600"
                 >
-                  {tenantConfig.workflowSteps.map(s => (
+                  {workflowSteps.map(s => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
@@ -734,7 +871,7 @@ export default function RiskMappingModule({
                         className="w-full bg-slate-50 border border-slate-200 text-xs p-1.5 rounded"
                       >
                         <option value="">Pilote (Propriétaire)</option>
-                        {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                        {safeUsers.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
                       </select>
                       <input 
                         type="date"
@@ -767,10 +904,10 @@ export default function RiskMappingModule({
 
                 {/* Actual related actions list */}
                 <div className="space-y-1.5">
-                  {actions.filter(a => a.riskId === selectedRisk.id).length === 0 ? (
+                  {safeActions.filter(a => a.riskId === selectedRisk.id).length === 0 ? (
                     <p className="text-slate-400 italic text-[10px] text-center py-2">Aucun moyen correctif n'est planifié pour ce risque.</p>
                   ) : (
-                    actions.filter(a => a.riskId === selectedRisk.id).map(a => (
+                    safeActions.filter(a => a.riskId === selectedRisk.id).map(a => (
                       <div key={a.id} className="bg-white p-2.5 rounded border border-slate-100 flex items-center justify-between text-xs hover:border-indigo-150 transition-all">
                         <div className="space-y-0.5">
                           <p className="font-bold text-slate-800 text-[11px] leading-tight">{a.title}</p>

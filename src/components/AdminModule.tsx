@@ -33,7 +33,6 @@ interface AdminModuleProps {
   sessions: SessionExercice[];
   onAddSession: (s: SessionExercice) => void;
   onUpdateSession: (s: SessionExercice) => void;
-  onDeleteSession: (id: string) => void;
 }
 
 export default function AdminModule({
@@ -48,8 +47,7 @@ export default function AdminModule({
   initialTab,
   sessions,
   onAddSession,
-  onUpdateSession,
-  onDeleteSession
+  onUpdateSession
 }: AdminModuleProps) {
   const [activeTab, setActiveTab] = useState<'users' | 'tenants' | 'audit' | 'sessions'>(initialTab || 'users');
 
@@ -677,28 +675,15 @@ export default function AdminModule({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        {s.statut === 'Ouverte' && (
-                          <button
-                            onClick={() => handleCloturerClick(s)}
-                            className="py-1.5 px-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded shadow transition text-[11px] flex items-center gap-1 cursor-pointer"
-                          >
-                            <Power className="w-3.5 h-3.5" />
-                            Clôturer l'Exercice
-                          </button>
-                        )}
+                      {s.statut === 'Ouverte' && (
                         <button
-                          onClick={() => {
-                            if (window.confirm(`Êtes-vous sûr de vouloir supprimer la session d'exercice ${s.annee} ?`)) {
-                              onDeleteSession(s.id);
-                            }
-                          }}
-                          className="p-1.5 bg-white hover:bg-red-50 text-slate-400 hover:text-red-650 border border-slate-200 hover:border-red-200 rounded-lg shadow-sm transition-colors duration-150 cursor-pointer"
-                          title="Supprimer la session"
+                          onClick={() => handleCloturerClick(s)}
+                          className="py-1.5 px-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded shadow transition text-[11px] flex items-center gap-1 cursor-pointer shrink-0"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Power className="w-3.5 h-3.5" />
+                          Clôturer l'Exercice
                         </button>
-                      </div>
+                      )}
                     </div>
                   ))}
                 </div>

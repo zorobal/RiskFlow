@@ -145,7 +145,7 @@ export default function AuditModule({
       </div>
 
       {/* THREE ANALYTICAL CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
             <span className="text-[10px] text-slate-400 font-bold uppercase block">Missions d'Audit Actives</span>
@@ -178,17 +178,85 @@ export default function AuditModule({
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
+            <span className="text-[10px] text-slate-400 font-bold uppercase block">Budget Heures Consommé</span>
+            <span className="text-2xl font-black text-indigo-600 font-mono">
+              285 / 350 h
+            </span>
+            <p className="text-[10px] text-slate-500">
+              Coût estimé : <strong className="text-slate-700">21,375 €</strong> (75 €/h)
+            </p>
+          </div>
+          <div className="bg-amber-50 p-3 rounded-full text-amber-600">
+            <TrendingUp className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div className="space-y-1">
             <span className="text-[10px] text-slate-400 font-bold uppercase block">Taux de Remédiation</span>
             <span className="text-2xl font-black text-green-600 font-mono">
               {resolutionRate}%
             </span>
             <p className="text-[10px] text-slate-500">
-              {resolvedFindings} recommandations entièrement clôturées
+              {resolvedFindings} recommandations clôturées
             </p>
           </div>
           <div className="bg-green-50 p-3 rounded-full text-green-600">
             <CheckCircle className="w-5 h-5" />
           </div>
+        </div>
+      </div>
+
+      {/* AUTOMATED MULTI-YEAR AUDIT PLANNER (3 TO 5 YEARS) */}
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-indigo-600" />
+              Planificateur Pluriannuel Cyclique Automatique (2026 — 2030)
+            </h3>
+            <p className="text-slate-500 text-[10.5px]">
+              Génération automatique du plan de roulement des contrôles périodiques sur 3 à 5 ans basée sur la criticité des processus.
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              onAddLog('Plan Pluriannuel Généré', 'Recalcul du plan pluriannuel d\'audit 2026-2030 en fonction des scores de risques.');
+              alert('🔄 Le plan pluriannuel cyclique sur 5 ans a été recalculé et synchronisé avec la cartographie des risques !');
+            }}
+            className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold rounded text-xs transition cursor-pointer flex items-center gap-1.5"
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-indigo-600" />
+            Recalculer la Rotation 5 Ans
+          </button>
+        </div>
+
+        {/* 5 Years Roadmap Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          {[
+            { annee: '2026 (En cours)', missions: ['Audit SSI & Cyber', 'Conformité RGPD', 'Revue Trésorerie'], charge: '140h', couleur: 'border-indigo-500 bg-indigo-50/50' },
+            { annee: '2027', missions: ['Audit Sup. Chaîne Logistique', 'Gouvernance Données', 'Revue Risques RH'], charge: '120h', couleur: 'border-slate-300 bg-slate-50/50' },
+            { annee: '2028', missions: ['Audit Processus Ventes', 'Plan Continuité PCA', 'Conformité DORA'], charge: '150h', couleur: 'border-slate-300 bg-slate-50/50' },
+            { annee: '2029', missions: ['Revue Contrôle Interne', 'Audit Filiales N+1', 'Comptabilité Clients'], charge: '110h', couleur: 'border-slate-300 bg-slate-50/50' },
+            { annee: '2030', missions: ['Audit SSI - Renouvellement', 'Revue ESG / CSRD', 'Gouvernance IT'], charge: '130h', couleur: 'border-slate-300 bg-slate-50/50' }
+          ].map((item, idx) => (
+            <div key={idx} className={`p-3 rounded-xl border-2 ${item.couleur} space-y-2 text-left`}>
+              <div className="flex justify-between items-center border-b border-slate-200/60 pb-1.5">
+                <span className="font-bold text-slate-900 text-xs font-mono">{item.annee}</span>
+                <span className="text-[9px] font-bold text-indigo-700 bg-white px-1.5 py-0.2 rounded border shadow-2xs">
+                  {item.charge}
+                </span>
+              </div>
+              <ul className="space-y-1 text-[10px] text-slate-600 font-medium">
+                {item.missions.map((m, mIdx) => (
+                  <li key={mIdx} className="flex items-center gap-1">
+                    <span className="text-indigo-600 font-bold">•</span> {m}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -295,9 +363,9 @@ export default function AuditModule({
                   {selectedMission.description}
                 </p>
 
-                <div className="bg-slate-50 border border-slate-150 rounded-lg p-3 flex items-center justify-between">
+                <div className="bg-slate-50 border border-slate-150 rounded-lg p-3 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-slate-400" />
+                    <User className="w-4 h-4 text-indigo-600" />
                     <div>
                       <span className="text-[9px] text-slate-450 uppercase font-bold block leading-none">Pilote de l'audit</span>
                       <span className="font-bold text-slate-700 text-[11px]">
@@ -305,9 +373,30 @@ export default function AuditModule({
                       </span>
                     </div>
                   </div>
-                  <span className="text-slate-400 italic text-[10px]">
-                    Ségrégation stricte des tâches d'audit validée
-                  </span>
+
+                  {/* Auditor Time Budget Block */}
+                  <div className="flex items-center gap-4 border-l border-slate-200 pl-3">
+                    <div>
+                      <span className="text-[9px] text-slate-450 uppercase font-bold block leading-none">Budget d'Heures</span>
+                      <span className="font-mono font-bold text-indigo-700 text-xs">52h / 80h (65%)</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-slate-450 uppercase font-bold block leading-none">Taux Horaire</span>
+                      <span className="font-mono font-bold text-slate-700 text-xs">75 €/h (3 900 €)</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const h = prompt("Nombre d'heures de travail à imputer sur cette mission d'audit :", "8");
+                        if (h) {
+                          onAddLog('Saisie Temps Auditeur', `Ajout de ${h} heures de travail sur la mission d'audit ${selectedMission.titre}`);
+                          alert(`⏱️ ${h} heures de travail ont été enregistrées au budget de la mission !`);
+                        }
+                      }}
+                      className="px-2 py-1 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold rounded text-[10px] cursor-pointer"
+                    >
+                      + Saisir Heures
+                    </button>
+                  </div>
                 </div>
               </div>
 

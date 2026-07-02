@@ -6,63 +6,77 @@ Ce document décrit en détail les équations mathématiques et logiques implém
 
 ## 1. Criticité Brute du Risque (Gross Risk Score)
 
-La criticité brute évalue l'exposition d'un risque sans considérer l'effet réducteur d'éventuels dispositifs de contrôle interne.
+La criticité brute évalue l'exposition intrinsèque d'un risque sans considérer l'effet réducteur des dispositifs de contrôle interne.
 
-### Formule :
-$$\text{Criticité Brute} (C_B) = \text{Probabilité} (P) \times \text{Impact} (I)$$
+### Formule Générale :
+$$\text{Criticité Brute} (C_B) = \text{Probabilité / Fréquence} (P) \times \text{Impact} (I)$$
 
-- **Probabilité ($P$)** : Note entière de 1 à $N$ évaluant la fréquence de survenance du risque.
+- **Probabilité / Fréquence ($P$ ou $F$)** : Note entière de 1 à $N$ évaluant la récurrence de la menace.
 - **Impact ($I$)** : Note entière de 1 à $N$ évaluant la sévérité financière, opérationnelle ou réputationnelle.
-- **Taille de la Matrice ($N$)** : Égale à **4** (échelle 4x4) ou **5** (échelle 5x5) selon la configuration choisie par l'entreprise ou configurée par le SuperAdmin.
+- **Taille de la Matrice ($N$)** : Égale à **4** (échelle 4x4) ou **5** (échelle 5x5) selon le paramétrage du Tenant.
 
-### Exemples de bornes de Criticité Brute ($C_B$) :
+### Bornes de Criticité Brute ($C_B$) :
 - Matrice 4x4 : $C_B \in [1, 16]$
 - Matrice 5x5 : $C_B \in [1, 25]$
 
 ---
 
-## 2. Efficacité des Contrôles (Control Effectiveness)
+## 2. Formule 1 : Évaluation Réglementaire IFACI (Sogesti S.A.)
 
-Pour chaque risque, un ou plusieurs contrôles peuvent être rattachés. Chaque contrôle dispose d'une note d'efficacité individuelle.
+La méthode IFACI (Institut Français des Auditeurs et Contrôleurs Internes) s'appuie sur une approche multiplicative modérée par l'indice de maîtrise des contrôles.
 
-### Formule de calcul d'Efficacité Globale ($E_C$) :
-Si plusieurs contrôles sont affectés à un risque, l'efficacité combinée est calculée selon l'algorithme suivant :
+### Équations IFACI :
+1. **Facteur de Maîtrise ($M$)** :
+   $$M = 1 - \frac{\text{Taux de Contrôle } (\%)}{100}$$
+   *(Un contrôle efficace à 80% donne un facteur de maîtrise $M = 0.20$)*.
 
-$$E_C = \min \left( 100\%, \sum_{k=1}^{M} E_k \right) \quad \text{ou} \quad E_C = 1 - \prod_{k=1}^{M} (1 - E_k)$$
+2. **Criticité Résiduelle IFACI ($C_R$)** :
+   $$C_R = \text{Fréquence} (F) \times \text{Impact} (I) \times M$$
 
-Dans l'implémentation standardisée de notre plateforme GRC :
-- Les contrôles sont agrégés par moyenne pondérée ou représentés par l'évaluation du contrôle le plus fort.
-- L'efficacité globale $E_C$ est exprimée sous forme de pourcentage : $E_C \in [0\%, 100\%]$.
-
----
-
-## 3. Criticité Résiduelle (Net / Residual Risk Score)
-
-La criticité résiduelle mesure l'exposition réelle restante après l'application des contrôles internes opérationnels.
-
-### Formule Standard :
-$$\text{Criticité Résiduelle} (C_R) = \text{Criticité Brute} (C_B) \times \left(1 - \frac{E_C}{100}\right)$$
-
-*Pour des raisons d'affichage sur la matrice cartographique, le score de criticité résiduelle est arrondi à l'entier le plus proche.*
-
-### Impact sur les Coordonnées Matricielles :
-La criticité résiduelle est également projetée graphiquement sur la Heatmap. L'algorithme calcule les coordonnées résiduelles ajustées ($P_{\text{net}}, I_{\text{net}}$) basées sur l'atténuation du risque :
-
-1. **Réduction d'Impact ($I_{\text{net}}$)** : $I_{\text{net}} = \max \left( 1, \text{round} \left( I \times \left(1 - \frac{E_C}{100} \times F_{\text{impact}} \right) \right) \right)$
-2. **Réduction de Probabilité ($P_{\text{net}}$)** : $P_{\text{net}} = \max \left( 1, \text{round} \left( P \times \left(1 - \frac{E_C}{100} \times F_{\text{freq}} \right) \right) \right)$
-
-*(Où $F_{\text{impact}}$ et $F_{\text{freq}}$ sont les facteurs d'atténuation configurés dans le module d'administration du client).*
+### Exemple Numérique (Risque Cyber R-101 sur Grille 4x4) :
+- Fréquence $F = 4$, Impact $I = 4 \implies C_B = 16$ (Risque Élevé - Rouge).
+- Efficacité des contrôles mis en œuvre (MFA, Pare-feu) = $75\% \implies M = 0.25$.
+- Criticité Résiduelle : $C_R = 4 \times 4 \times 0.25 = 4.0$ (Risque Faible - Vert).
 
 ---
 
-## 4. Seuils d'Alerte et Niveaux de Gravité
+## 3. Formule 2 : Évaluation Mitigée Soustraite (AeroTech)
 
-Les risques (bruts ou résiduels) sont catégorisés en 3 niveaux d'alerte selon des plages de scores bien définies :
+Pour les secteurs industriels ou aéronautiques nécessitant un calcul additif direct de remédiation, Sogesti GRC propose la formule mitigée soustraite.
+
+### Équation Mitigée :
+$$C_R = \max \left( 1, (P \times I) - \text{Valeur de Mitigation} \right)$$
+
+- **Valeur de Mitigation** : Score entier représentant la capacité d'absorption des contrôles et des plans d'actions correctives.
+- **Garantie Plancher** : La criticité résiduelle ne peut pas être inférieure à 1.
+
+### Exemple Numérique (Risque Calibrage R-202 sur Grille 5x5) :
+- Probabilité $P = 5$, Impact $I = 4 \implies C_B = 20$ (Risque Élevé - Rouge).
+- Mitigation apportée par l'étalonnage automatisé = $12$.
+- Criticité Résiduelle : $C_R = \max(1, 20 - 12) = 8$ (Risque Modéré - Orange).
+
+---
+
+## 4. Projection des Coordonnées sur la Matrice (Heatmap)
+
+Pour positionner graphiquement les risques sur la grille thermique 4x4 ou 5x5, l'algorithme calcule les coordonnées résiduelles ajustées ($P_{\text{net}}, I_{\text{net}}$) :
+
+1. **Impact Résiduel Ajusté ($I_{\text{net}}$)** :
+   $$I_{\text{net}} = \max \left( 1, \text{round} \left( I \times \left(1 - \frac{\text{Contrôle \%}}{100} \times F_{\text{impact}} \right) \right) \right)$$
+
+2. **Probabilité Résiduelle Ajustée ($P_{\text{net}}$)** :
+   $$P_{\text{net}} = \max \left( 1, \text{round} \left( P \times \left(1 - \frac{\text{Contrôle \%}}{100} \times F_{\text{freq}} \right) \right) \right)$$
+
+---
+
+## 5. Niveaux de Gravité et Plages de Criticité
+
+Les risques sont automatiquement classifiés selon trois niveaux de sévérité :
 
 ### Pour une Matrice 4x4 :
 - **🟢 Risque Faible (Vert)** : Score $C_B \text{ ou } C_R \in [1, 4]$
 - **🟡 Risque Modéré (Orange)** : Score $C_B \text{ ou } C_R \in [5, 9]$
-- **🔴 Risque Élevé (Rouge)** : Score $C_B \text{ ou } C_R \in [10, 16]$ (Nécessite une relance automatique et un plan d'action d'atténuation immédiat).
+- **🔴 Risque Élevé (Rouge)** : Score $C_B \text{ ou } C_R \in [10, 16]$ *(Déclenche une alerte prioritaire et requiert un plan d'action d'urgence)*.
 
 ### Pour une Matrice 5x5 :
 - **🟢 Risque Faible (Vert)** : Score $C_B \text{ ou } C_R \in [1, 6]$

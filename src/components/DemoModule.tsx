@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { 
-  Sparkles, Server, Database, Shield, ArrowRight, Layers, Settings, 
-  Key, RefreshCw, Play, Check, Code, Cpu, Info, Globe, HardDrive, 
-  Lock, Eye, AlertCircle, Award, CheckSquare, ClipboardList, TrendingUp 
+  Sparkles, Shield, ArrowRight, Layers, Play, Check, 
+  ClipboardList, UserCheck, Building2, Calendar, FileText
 } from 'lucide-react';
 import { User, TenantConfig } from '../types';
 
@@ -14,64 +13,24 @@ interface DemoModuleProps {
 }
 
 export default function DemoModule({ users, tenants, onSelectScenario, onBackToLogin }: DemoModuleProps) {
-  const [activeTab, setActiveTab] = useState<'scenarios' | 'architecture' | 'frameworks' | 'features'>('scenarios');
-  const [copiedText, setCopiedText] = useState<string | null>(null);
-  const [selectedScenarioId, setSelectedScenarioId] = useState<string>('sc_superadmin');
-  
-  // Interactive Supabase Router Playground State
-  const [selectedTenantSim, setSelectedTenantSim] = useState<'tenant1' | 'tenant2' | 'tenant_new'>('tenant1');
-  const [querySim, setQuerySim] = useState('SELECT id, title, score_residuel FROM risks LIMIT 3;');
-  const [isExecutingQuery, setIsExecutingQuery] = useState(false);
-  const [queryResult, setQueryResult] = useState<any[]>([
-    { id: 'R-101', title: 'Rupture d\'approvisionnement critique', score_residuel: 16 }
-  ]);
-
-  const handleCopy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedText(id);
-    setTimeout(() => setCopiedText(null), 1500);
-  };
-
-  const handleSimulateQuery = () => {
-    setIsExecutingQuery(true);
-    setTimeout(() => {
-      setIsExecutingQuery(false);
-      if (selectedTenantSim === 'tenant1') {
-        setQueryResult([
-          { id: 'R-101', title: 'Rupture d\'approvisionnement critique', score_residuel: 16 },
-          { id: 'R-102', title: 'Piratage et rançongiciel', score_residuel: 8 },
-          { id: 'R-103', title: 'Non-conformité RGPD sur les fiches RH', score_residuel: 18 }
-        ]);
-      } else if (selectedTenantSim === 'tenant2') {
-        setQueryResult([
-          { id: 'R-201', title: 'Incident de calibrage des gouvernes', score_residuel: 12 },
-          { id: 'R-202', title: 'Interruption de chaîne d\'assemblage', score_residuel: 6 },
-          { id: 'R-203', title: 'Défaut d\'isolation thermique réacteurs', score_residuel: 15 }
-        ]);
-      } else {
-        setQueryResult([
-          { id: 'R-NEW-01', title: 'Base nouvellement provisionnée', score_residuel: 0 }
-        ]);
-      }
-    }, 400);
-  };
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string>('sc_admin_entreprise');
 
   const demoScenarios = [
     {
-      id: 'sc_superadmin',
-      title: 'Scénario 1 : SuperAdmin de la Plateforme GRC',
-      description: 'Supervisez l\'infrastructure globale. Pilotez l\'activation et la suspension de licences des entreprises clientes (Sogesti, AeroTech), suivez l\'audit complet inter-entreprises, simulez un jeton de validation MFA double-facteur, et gérez la restauration des sauvegardes d\'urgence.',
-      persona: users.find(u => u.role === 'SuperAdmin') || users[4] || users[0],
+      id: 'sc_admin_entreprise',
+      title: 'Scénario 1 : Administrateur de l\'Entreprise Client',
+      description: 'Gérez la configuration interne de votre entreprise : habilitations et rôles des équipes, paramétrage de l\'organisation et des entités métiers, suivi et clôture des sessions d\'exercice annuel.',
+      persona: users.find(u => u.role === 'Direction') || users[1] || users[0],
       tenantId: 'tenant1',
-      isSuperAdmin: true,
+      isSuperAdmin: false,
       initialModule: 'admin',
-      badge: 'Contrôle Global • Sauvegardes & MFA',
-      badgeColor: 'bg-red-500/15 text-red-350 border-red-500/30'
+      badge: 'Administration Interne • Utilisateurs & Sessions',
+      badgeColor: 'bg-purple-500/15 text-purple-300 border-purple-500/30'
     },
     {
       id: 'sc_riskmanager',
       title: 'Scénario 2 : Risk Manager de Sogesti S.A.',
-      description: 'Pilotez l\'analyse des risques d\'une grande compagnie d\'assurance. Utilisez la matrice de criticité 4x4 et la formule originale de l\'IFACI (F x I x M), planifiez des actions de traitement correctives (MFA, RGPD) et filtrez les indicateurs de risques par Exercice fiscal annuel.',
+      description: 'Pilotez l\'analyse des risques d\'une grande compagnie d\'assurance. Utilisez la matrice de criticité 4x4 et la formule originale de l\'IFACI (F x I x M), planifiez des actions de traitement correctives (MFA, RGPD) et filtrez les indicateurs par Exercice fiscal.',
       persona: users.find(u => u.email === 'alainpatricknkoumou@gmail.com') || users[0],
       tenantId: 'tenant1',
       isSuperAdmin: false,
@@ -116,41 +75,41 @@ export default function DemoModule({ users, tenants, onSelectScenario, onBackToL
       module: string;
     }[];
   }> = {
-    sc_superadmin: {
-      title: "Supervision Multi-Tenant et Gestion de la Continuité GRC",
-      description: "Ce cas d'usage simule le rôle du superviseur technique de la plateforme. Vous piloterez l'activation des contrats des entreprises clientes, visualiserez les audits de sécurité et simulerez une restauration d'urgence.",
-      targetTenantName: "Console Plateforme GRC",
+    sc_admin_entreprise: {
+      title: "Administration Interne et Gouvernance de l'Entreprise Client",
+      description: "Ce cas d'usage simule le rôle d'Administrateur au sein d'une entreprise cliente. Vous configurerez les comptes utilisateurs et habilitations, gérerez les entités de votre structure et suivrez les sessions d'exercice annuel.",
+      targetTenantName: "Sogesti S.A. (Assurances)",
       steps: [
         {
           stepNumber: 1,
-          title: "Supervision des Filiales et Entreprises Clientes",
-          objective: "Visualiser l'état de validité des abonnements et licences des entreprises clientes de la plateforme.",
-          action: "Accédez à la console d'administration centrale de la plateforme en démarrant ce scénario.",
-          result: "Vous visualiserez l'Espace d'Administration Centrale avec la liste des entreprises clientes (Sogesti S.A., AeroTech, etc.) et l'état de validité de leurs licences.",
+          title: "Gestion des Comptes Utilisateurs & Habilitations",
+          objective: "Accorder et ajuster les rôles et droits d'accès (Risk Manager, Analyste, Auditeur) aux collaborateurs de l'entreprise.",
+          action: "Accédez au module Administration (onglet 'Utilisateurs') pour ajouter ou modifier un profil utilisateur.",
+          result: "Le compte utilisateur est immédiatement mis à jour avec son périmètre d'accès et ses autorisations.",
           module: "admin"
         },
         {
           stepNumber: 2,
-          title: "Gestion des Licences en Temps Réel",
-          objective: "Suspendre temporairement ou renouveler/activer l'accès d'un client de manière étanche.",
-          action: "Allez dans l'Espace Centrale SuperAdmin, localisez l'entreprise et cliquez sur le bouton de suspension.",
-          result: "La validité passe instantanément au statut 'Suspendu' ou 'Actif' avec journalisation dans l'audit de facturation globale.",
+          title: "Configuration de l'Organisation & Entités Métiers",
+          objective: "Rattacher les entités organisationnelles et filiales pour une segmentation fine des risques.",
+          action: "Dans le module Administration (onglet 'Entreprise'), vérifiez la configuration des départements et périmètres.",
+          result: "Les entités organisationnelles sont prêtes pour l'assignation dans les fiches de risques.",
           module: "admin"
         },
         {
           stepNumber: 3,
-          title: "Authentification Double-Facteur (MFA)",
-          objective: "Assurer la haute sécurité de la plateforme d'administration en générant des clés temporaires d'accès.",
-          action: "Observez le module de simulation MFA de sécurité actif à droite.",
-          result: "Un code PIN d'authentification à 6 chiffres se régénère dynamiquement toutes les 15 secondes pour certifier les actions critiques.",
+          title: "Planification d'une Session d'Exercice Annuel",
+          objective: "Lancer une nouvelle campagne d'évaluation et fixer les dates d'exercice fiscal (ex: Exercice 2026).",
+          action: "Allez sur l'onglet 'Sessions & Exercices', puis créez ou ouvrez une nouvelle session annuelle.",
+          result: "La session est activée et permet de filtrer l'ensemble des indicateurs de risques et tableaux de bord.",
           module: "admin"
         },
         {
           stepNumber: 4,
-          title: "Restauration d'Urgence (Plan de Reprise d'Activité)",
-          objective: "Réinitialiser un client à son état d'origine en cas de corruption ou de besoin de démonstration neuve.",
-          action: "Dans l'Espace SuperAdmin, cliquez sur le bouton 'Restaurer' lié à une entreprise pour réinitialiser sa base.",
-          result: "Le cache local de session du client est instantanément rechargé aux valeurs réglementaires de référence.",
+          title: "Clôture de Session d'Exercice & Bilan Annuel",
+          objective: "Figer les évaluations de l'exercice en cours et archiver les constats pour les auditeurs.",
+          action: "Cliquez sur 'Clôturer l'Exercice', renseignez le bilan consolidé et validez la fermeture de la session.",
+          result: "L'exercice est verrouillé avec sauvegarde immuable des indicateurs de performance GRC.",
           module: "admin"
         }
       ]
@@ -258,315 +217,235 @@ export default function DemoModule({ users, tenants, onSelectScenario, onBackToL
     }
   };
 
+  const activeCaseStudy = caseStudies[selectedScenarioId] || caseStudies['sc_admin_entreprise'];
+  const activeScenarioObj = demoScenarios.find(s => s.id === selectedScenarioId) || demoScenarios[0];
+
   return (
     <div className="min-h-screen w-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none overflow-x-hidden">
       
-      {/* Top Header Navigation */}
-      <header className="px-6 py-4 bg-slate-900/80 border-b border-slate-800/80 backdrop-blur flex items-center justify-between">
+      {/* Header Navigation */}
+      <header className="sticky top-0 z-50 px-6 py-4 bg-slate-900/90 border-b border-slate-800 backdrop-blur flex items-center justify-between shadow-md">
         <div className="flex items-center space-x-3">
-          <div className="h-8 w-8 bg-indigo-600 rounded flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <Shield className="w-4.5 h-4.5 text-white" />
+          <div className="h-9 w-9 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <Shield className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-white tracking-wide">ESPACE DÉMONSTRATION INTERACTIVE</h1>
-            <p className="text-[10px] text-slate-400 font-mono">DÉPLOIEMENT VERCEL • ISOLATION DE DONNÉES SUPABASE</p>
+            <h1 className="text-sm font-extrabold text-white tracking-wide">ESPACE DÉMONSTRATION INTERACTIVE</h1>
+            <p className="text-[10px] text-slate-400 font-medium">Scénarios Pratiques Pas-à-Pas • Prise en Main Guidée</p>
           </div>
         </div>
         
         <button
           onClick={onBackToLogin}
-          className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded text-xs font-bold transition-all cursor-pointer hover:text-white"
+          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 rounded-lg text-xs font-bold transition-all cursor-pointer text-slate-200 hover:text-white flex items-center gap-1.5 shadow-sm"
         >
           &larr; Retour au Portail de Connexion
         </button>
       </header>
 
-      {/* Main Container Split */}
-      <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 flex flex-col lg:flex-row gap-6">
+      {/* Main Container */}
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 lg:p-8 space-y-8">
         
-        {/* Left Side: Navigation Links & Deep Dives */}
-        <div className="lg:w-3/4 flex flex-col space-y-6">
+        {/* Intro Hero Banner */}
+        <div className="p-5 md:p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/20 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+            <Sparkles className="w-48 h-48 text-indigo-400" />
+          </div>
           
-          {/* Tabs Menu */}
-          <div className="flex border-b border-slate-800 space-x-1 bg-slate-900/40 p-1 rounded-lg">
-            <button
-              onClick={() => setActiveTab('scenarios')}
-              className={`flex-1 flex items-center justify-center space-x-2 py-2.5 px-4 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'scenarios' 
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <Play className="w-3.5 h-3.5" />
-              <span>Scénarios Pratiques</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('features')}
-              className={`flex-1 flex items-center justify-center space-x-2 py-2.5 px-4 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'features' 
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10' 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <Award className="w-3.5 h-3.5" />
-              <span>Grille de Fonctionnalités</span>
-            </button>
+          <div className="relative z-10 max-w-3xl space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[11px] font-bold">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Guide d'Exploration Interactive</span>
+            </div>
+            
+            <h2 className="text-lg md:text-xl font-black text-white tracking-tight">
+              Bienvenue dans la Démonstration Guidée de la Plateforme GRC
+            </h2>
+            
+            <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
+              Sélectionnez un scénario métier ci-dessous pour charger son <strong>Cas Pratique Pas-à-Pas</strong>. Vous pouvez démarrer le scénario complet en un clic ou accéder directement à l'étape spécifique de votre choix.
+            </p>
+          </div>
+        </div>
+
+        {/* Section 1: Scenarios Selection */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <Layers className="w-4 h-4 text-indigo-400" />
+              <span>Scénarios d'Utilisation Métiers</span>
+            </h3>
+            <span className="text-[11px] text-slate-500 font-medium">4 profils pré-configurés</span>
           </div>
 
-          {/* Tab Content 1: Scenarios */}
-          {activeTab === 'scenarios' && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/15">
-                <h3 className="text-sm font-bold text-indigo-300 flex items-center mb-1">
-                  <Sparkles className="w-4.5 h-4.5 mr-2 text-indigo-400" />
-                  Prêt pour un essai guidé en conditions réelles ?
-                </h3>
-                <p className="text-xs text-indigo-200/80 leading-relaxed">
-                  Sélectionnez l'un des scénarios d'excellence ci-dessous pour charger son <strong>Cas Pratique Pas-à-Pas</strong>. Vous pouvez démarrer le scénario complet en un clic ou lancer l'application directement à l'étape de votre choix grâce aux boutons d'accès instantanés.
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {demoScenarios.map((sc) => {
+              const isSelected = sc.id === selectedScenarioId;
+              return (
+                <div 
+                  key={sc.id}
+                  onClick={() => setSelectedScenarioId(sc.id)}
+                  className={`flex flex-col justify-between rounded-xl p-5 border transition-all duration-200 cursor-pointer relative overflow-hidden group select-none ${
+                    isSelected 
+                      ? 'bg-slate-900 border-indigo-500 shadow-xl shadow-indigo-500/10 ring-2 ring-indigo-500/30' 
+                      : 'bg-slate-900/50 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900/80'
+                  }`}
+                >
+                  {/* Selected Indicator Ribbon */}
+                  {isSelected && (
+                    <div className="absolute top-0 right-0 bg-indigo-600 text-[9px] text-white font-extrabold px-3 py-1 rounded-bl-lg shadow flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      Cas Pratique Actif
+                    </div>
+                  )}
+
+                  <div>
+                    {/* Badge */}
+                    <span className={`inline-block text-[9.5px] font-bold uppercase border px-2.5 py-0.5 rounded-full ${sc.badgeColor} mb-3.5`}>
+                      {sc.badge}
+                    </span>
+                    
+                    <h4 className={`text-sm font-bold transition-colors mb-2 ${isSelected ? 'text-indigo-300' : 'text-white group-hover:text-indigo-300'}`}>
+                      {sc.title}
+                    </h4>
+                    
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      {sc.description}
+                    </p>
+                  </div>
+
+                  {/* Footer with persona info & action button */}
+                  <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center justify-between">
+                    <div className="flex items-center space-x-2.5">
+                      <img 
+                        src={sc.persona.avatar} 
+                        alt="" 
+                        className="w-8 h-8 rounded-full border border-slate-700 object-cover shadow-sm" 
+                      />
+                      <div>
+                        <p className="text-xs font-bold text-slate-200 leading-none">{sc.persona.name}</p>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">{sc.persona.role}</p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectScenario(sc.persona, sc.tenantId, sc.isSuperAdmin, sc.initialModule);
+                      }}
+                      className="py-1.5 px-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-md hover:shadow-indigo-600/25"
+                      title="Lancer le scénario de test complet"
+                    >
+                      <Play className="w-3 h-3 fill-white" />
+                      <span>Démarrer ce Scénario</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Section 2: Active Case Study - Step-by-Step Practical Guide */}
+        {activeCaseStudy && (
+          <section className="bg-slate-900/80 border border-indigo-500/20 rounded-2xl p-5 md:p-6 space-y-6 shadow-2xl animate-fade-in">
+            {/* Case Study Title Header */}
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 bg-indigo-600/20 text-indigo-400 rounded-lg">
+                    <ClipboardList className="w-5 h-5" />
+                  </span>
+                  <h3 className="font-extrabold text-base text-white tracking-wide">
+                    Cas Pratique : {activeCaseStudy.title}
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
+                  {activeCaseStudy.description}
                 </p>
               </div>
 
-              {/* Scenarios Selection Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {demoScenarios.map((sc) => {
-                  const isSelected = sc.id === selectedScenarioId;
+              <div className="bg-slate-950 border border-slate-800 text-slate-300 font-mono text-[10px] font-bold px-3.5 py-2 rounded-xl flex items-center gap-2 shrink-0 shadow-inner">
+                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                <span>Espace Cible :</span>
+                <strong className="text-white">{activeCaseStudy.targetTenantName}</strong>
+              </div>
+            </div>
+
+            {/* Steps Grid */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Étapes du cas pratique pas-à-pas :
+                </p>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Cliquez sur "Lancer cette étape" pour accéder directement au module
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {activeCaseStudy.steps.map((step) => {
                   return (
                     <div 
-                      key={sc.id}
-                      onClick={() => setSelectedScenarioId(sc.id)}
-                      className={`flex flex-col justify-between rounded-xl p-5 border transition-all duration-200 cursor-pointer relative overflow-hidden group select-none ${
-                        isSelected 
-                          ? 'bg-slate-900 border-indigo-500 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-500/20' 
-                          : 'bg-slate-900/40 border-slate-800 hover:border-slate-700 hover:bg-slate-900/60'
-                      }`}
+                      key={step.stepNumber} 
+                      className="bg-slate-950/90 border border-slate-800/90 hover:border-indigo-500/40 rounded-xl p-5 space-y-4 transition-all flex flex-col justify-between shadow-md"
                     >
-                      {/* Active indicator ribbon */}
-                      {isSelected && (
-                        <div className="absolute top-0 right-0 bg-indigo-600 text-[8.5px] text-white font-extrabold px-3 py-1 rounded-bl shadow flex items-center gap-1">
-                          <Check className="w-3 h-3" />
-                          Cas Pratique Actif
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-extrabold px-3 py-0.5 rounded-full uppercase tracking-wider">
+                            Étape {step.stepNumber}
+                          </span>
+                          <span className="text-slate-400 text-[10.5px] font-mono font-bold uppercase flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded border border-slate-850">
+                            <Layers className="w-3 h-3 text-indigo-400" />
+                            Module : {step.module.toUpperCase()}
+                          </span>
                         </div>
-                      )}
 
-                      <div>
-                        {/* Top ribbon */}
-                        <span className={`inline-block text-[9px] font-bold uppercase border px-2 py-0.5 rounded-full ${sc.badgeColor} mb-4`}>
-                          {sc.badge}
-                        </span>
-                        
-                        <h4 className={`text-xs font-bold transition-colors mb-2 ${isSelected ? 'text-indigo-300' : 'text-white group-hover:text-indigo-400'}`}>
-                          {sc.title}
+                        <h4 className="font-bold text-slate-100 text-xs md:text-sm tracking-wide">
+                          {step.title}
                         </h4>
-                        <p className="text-[10.5px] text-slate-400 leading-relaxed">
-                          {sc.description}
-                        </p>
-                      </div>
 
-                      <div className="mt-6 pt-4 border-t border-slate-800/60 flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <img 
-                            src={sc.persona.avatar} 
-                            alt="" 
-                            className="w-8 h-8 rounded-full border border-slate-700 object-cover" 
-                          />
-                          <div className="text-left">
-                            <p className="text-[10.5px] font-bold text-slate-300 leading-none">{sc.persona.name}</p>
-                            <p className="text-[9px] text-slate-500 font-medium">{sc.persona.role}</p>
+                        <div className="space-y-2 text-xs">
+                          <div className="p-2.5 bg-slate-900/60 rounded-lg border border-slate-850">
+                            <strong className="text-indigo-400 text-[10.5px] uppercase font-bold block mb-0.5">🎯 Objectif Métier :</strong>
+                            <p className="text-slate-300 leading-relaxed text-[11px]">{step.objective}</p>
+                          </div>
+                          
+                          <div className="p-2.5 bg-slate-900/60 rounded-lg border border-slate-850">
+                            <strong className="text-amber-400 text-[10.5px] uppercase font-bold block mb-0.5">🛠️ Action à Réaliser :</strong>
+                            <p className="text-slate-300 leading-relaxed text-[11px]">{step.action}</p>
+                          </div>
+                          
+                          <div className="p-2.5 bg-slate-900/60 rounded-lg border border-slate-850">
+                            <strong className="text-emerald-400 text-[10.5px] uppercase font-bold block mb-0.5">✨ Résultat Attendu :</strong>
+                            <p className="text-slate-300 leading-relaxed text-[11px]">{step.result}</p>
                           </div>
                         </div>
+                      </div>
 
+                      <div className="pt-2 border-t border-slate-900 flex justify-end">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // prevent setting selected case twice
-                            onSelectScenario(sc.persona, sc.tenantId, sc.isSuperAdmin, sc.initialModule);
-                          }}
-                          className="py-1 px-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded text-[10px] transition-all cursor-pointer flex items-center gap-1 shadow"
-                          title="Lancer le scénario de test complet"
+                          onClick={() => onSelectScenario(
+                            activeScenarioObj.persona,
+                            activeScenarioObj.tenantId,
+                            activeScenarioObj.isSuperAdmin,
+                            step.module
+                          )}
+                          className="w-full sm:w-auto py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs tracking-wide transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md hover:shadow-indigo-600/20"
                         >
-                          <Play className="w-3 h-3 fill-white" />
-                          Lancer Complet
+                          <span>Lancer cette étape</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
                   );
                 })}
               </div>
-
-              {/* DYNAMIC CASE STUDY - STEP-BY-STEP (Cas Pratique Actif) */}
-              {selectedScenarioId && caseStudies[selectedScenarioId] && (
-                <div className="bg-slate-900/60 border border-indigo-500/20 rounded-xl p-5 space-y-5 animate-fade-in">
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="p-1 bg-indigo-600/20 text-indigo-400 rounded">
-                          <ClipboardList className="w-4 h-4" />
-                        </span>
-                        <h4 className="font-extrabold text-sm text-white tracking-wide">
-                          Cas Pratique : {caseStudies[selectedScenarioId].title}
-                        </h4>
-                      </div>
-                      <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
-                        {caseStudies[selectedScenarioId].description}
-                      </p>
-                    </div>
-                    <div className="bg-slate-850 border border-slate-750 text-slate-300 font-mono text-[9.5px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shrink-0">
-                      <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                      Espace Cible : <strong className="text-white">{caseStudies[selectedScenarioId].targetTenantName}</strong>
-                    </div>
-                  </div>
-
-                  {/* Steps Timeline / Cards */}
-                  <div className="space-y-4">
-                    <p className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
-                      Étapes guidées du cas pratique (Cliquez sur "Lancer cette étape" pour naviguer directement) :
-                    </p>
-                    
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {caseStudies[selectedScenarioId].steps.map((step) => {
-                        const targetScenario = demoScenarios.find(sc => sc.id === selectedScenarioId)!;
-                        return (
-                          <div 
-                            key={step.stepNumber} 
-                            className="bg-slate-950/80 border border-slate-800 hover:border-slate-700 rounded-xl p-4.5 space-y-3.5 transition-all flex flex-col justify-between"
-                          >
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between">
-                                <span className="bg-indigo-600/15 text-indigo-300 border border-indigo-500/20 text-[9.5px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                                  Étape {step.stepNumber}
-                                </span>
-                                <span className="text-slate-500 text-[10px] font-mono font-semibold uppercase flex items-center gap-1">
-                                  <Layers className="w-3 h-3 text-slate-400" />
-                                  Module : {step.module.toUpperCase()}
-                                </span>
-                              </div>
-
-                              <h5 className="font-bold text-slate-100 text-[11.5px] tracking-wide">
-                                {step.title}
-                              </h5>
-
-                              <div className="space-y-2 text-[10.5px]">
-                                <div className="p-2 bg-slate-900/50 rounded-lg border border-slate-850/50">
-                                  <strong className="text-indigo-400 text-[10px] uppercase font-bold block mb-0.5">🎯 Objectif Métier :</strong>
-                                  <p className="text-slate-300 leading-relaxed">{step.objective}</p>
-                                </div>
-                                <div className="p-2 bg-slate-900/50 rounded-lg border border-slate-850/50">
-                                  <strong className="text-amber-400 text-[10px] uppercase font-bold block mb-0.5">🛠️ Action à Réaliser :</strong>
-                                  <p className="text-slate-300 leading-relaxed">{step.action}</p>
-                                </div>
-                                <div className="p-2 bg-slate-900/50 rounded-lg border border-slate-850/50">
-                                  <strong className="text-emerald-400 text-[10px] uppercase font-bold block mb-0.5">✨ Résultat Attendu :</strong>
-                                  <p className="text-slate-300 leading-relaxed">{step.result}</p>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="pt-2 border-t border-slate-900 flex justify-end">
-                              <button
-                                onClick={() => onSelectScenario(
-                                  targetScenario.persona,
-                                  targetScenario.tenantId,
-                                  targetScenario.isSuperAdmin,
-                                  step.module
-                                )}
-                                className="w-full sm:w-auto py-1.5 px-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded text-[10px] tracking-wide transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow"
-                              >
-                                <span>Lancer cette étape</span>
-                                <ArrowRight className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
-          )}
+          </section>
+        )}
 
-          {/* Tab Content 4: Full Features Grid */}
-          {activeTab === 'features' && (
-            <div className="space-y-4 animate-fade-in text-xs">
-              <div className="p-4 bg-slate-900 border border-slate-800 rounded-lg">
-                <h3 className="font-bold text-white mb-1 text-xs">Matrice de Couverture Fonctionnelle</h3>
-                <p className="text-slate-400 text-[11px]">Consultez la liste exhaustive des fonctionnalités activées sur la plateforme Sogesti GRC :</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2.5">
-                  <div className="flex items-start space-x-2.5 p-3 bg-slate-900/50 border border-slate-850 rounded-lg">
-                    <CheckSquare className="w-4 h-4 text-indigo-400 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-white text-[11px]">Cartographie Dynamique des Risques</h4>
-                      <p className="text-[10px] text-slate-400 leading-relaxed">Création de fiches, historisation des re-évaluations, gestion du workflow et assignations d'entités organisationnelles.</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start space-x-2.5 p-3 bg-slate-900/50 border border-slate-850 rounded-lg">
-                    <Layers className="w-4 h-4 text-indigo-400 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-white text-[11px]">Matrice Heatmap 4x4 / 5x5</h4>
-                      <p className="text-[10px] text-slate-400 leading-relaxed">Positionnement automatique des risques sur une grille thermique colorée en temps réel avec filtres multicritères.</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-2.5 p-3 bg-slate-900/50 border border-slate-850 rounded-lg">
-                    <ClipboardList className="w-4 h-4 text-indigo-400 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-white text-[11px]">Missions d'Audit Interne</h4>
-                      <p className="text-[10px] text-slate-400 leading-relaxed">Création de missions d'audits, formulation de constats/recommandations de remédiation, assignation de responsables.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2.5">
-                  <div className="flex items-start space-x-2.5 p-3 bg-slate-900/50 border border-slate-850 rounded-lg">
-                    <Shield className="w-4 h-4 text-indigo-400 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-white text-[11px]">Périmètres de Conformité Réglementaire</h4>
-                      <p className="text-[10px] text-slate-400 leading-relaxed">Création de référentiels de conformité (RGPD, ISO 27001), suivi des obligations et déclaration d'incidents.</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-2.5 p-3 bg-slate-900/50 border border-slate-850 rounded-lg">
-                    <Cpu className="w-4 h-4 text-indigo-400 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-white text-[11px]">Contrôle SuperAdmin Multi-Tenant</h4>
-                      <p className="text-[10px] text-slate-400 leading-relaxed">Console d'administration plateforme : licence mensuelle, supervision, logs d'activité complets et sauvegarde portable.</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-2.5 p-3 bg-slate-900/50 border border-slate-850 rounded-lg">
-                    <Lock className="w-4 h-4 text-indigo-400 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-white text-[11px]">Sécurité Renforcée & MFA</h4>
-                      <p className="text-[10px] text-slate-400 leading-relaxed">Double validation des actions d'administration destructrices, et simulation d'un module d'authentification double-facteur.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-        </div>
-
-        {/* Right Side: Quick Specs / Architecture / Test Stats */}
-        <div className="lg:w-1/4 space-y-5">
-          
-          {/* Contact & Demo Information */}
-          <div className="p-4 bg-indigo-950/20 border border-indigo-500/15 rounded-lg text-[10px] text-indigo-300 leading-normal space-y-2">
-            <p className="font-bold text-white text-xs">ℹ️ Mode Démo Client</p>
-            <p>
-              Cette interface permet à vos futurs clients d'explorer toutes les fonctionnalités en un seul clic sans nécessiter d'inscription préalable.
-            </p>
-            <p className="text-slate-400 text-[9px]">
-              Toutes les données de test sont stockées en mémoire cache locale de session (localStorage/sessionStorage).
-            </p>
-          </div>
-
-        </div>
-
-      </div>
+      </main>
 
     </div>
   );

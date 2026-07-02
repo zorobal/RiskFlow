@@ -101,6 +101,9 @@ export default function OdooNavbar({
 
   const handleModuleClick = (modId: string) => {
     setActiveModule(modId);
+    if (isSuperAdminMode) {
+      onToggleSuperAdminMode(false);
+    }
     setShowAppsMenu(false);
     onAddLog('Navigation', `Accès au module ${appModules.find(m => m.id === modId)?.name}`);
   };

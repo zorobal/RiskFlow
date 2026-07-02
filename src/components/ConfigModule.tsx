@@ -91,7 +91,54 @@ export default function ConfigModule({
   succursalesActives = true
 }: ConfigModuleProps) {
   // Config Modules Sub-tab switcher
-  const [activeTab, setActiveTab] = useState<'org' | 'functions' | 'rules' | 'scales' | 'formula' | 'categories' | 'workflow' | 'rights'>('org');
+  const [activeTab, setActiveTab] = useState<'org' | 'functions' | 'rules' | 'scales' | 'formula' | 'categories' | 'workflow' | 'rights' | 'formbuilder'>('org');
+
+  // Form Builder No-Code State
+  const [customFields, setCustomFields] = useState<{
+    id: string;
+    targetObject: 'Risque' | 'Incident' | 'Action' | 'Audit';
+    label: string;
+    code: string;
+    type: 'Texte' | 'Nombre' | 'Liste' | 'Date' | 'Case à cocher';
+    options?: string;
+    required: boolean;
+  }>([
+    { id: 'cf_1', targetObject: 'Risque', label: 'Montant d\'assurance spécifique (€)', code: 'VALEUR_ASSURANCE', type: 'Nombre', required: false },
+    { id: 'cf_2', targetObject: 'Risque', label: 'Référent Technique Métier', code: 'REF_TECH', type: 'Texte', required: true },
+    { id: 'cf_3', targetObject: 'Incident', label: 'Infiltration / Fiche SSI', code: 'INC_SSI', type: 'Case à cocher', required: false },
+    { id: 'cf_4', targetObject: 'Action', label: 'Centre de coût rattaché', code: 'CENTRE_COUT', type: 'Liste', options: 'Finance, DSI, Logistique, RH', required: true }
+  ]);
+
+  const [newCfTarget, setNewCfTarget] = useState<'Risque' | 'Incident' | 'Action' | 'Audit'>('Risque');
+  const [newCfLabel, setNewCfLabel] = useState('');
+  const [newCfCode, setNewCfCode] = useState('');
+  const [newCfType, setNewCfType] = useState<'Texte' | 'Nombre' | 'Liste' | 'Date' | 'Case à cocher'>('Texte');
+  const [newCfOptions, setNewCfOptions] = useState('');
+  const [newCfReq, setNewCfReq] = useState(false);
+
+  const handleAddCustomField = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCfLabel.trim()) return;
+    const generatedCode = newCfCode.trim() ? newCfCode.toUpperCase().replace(/\s+/g, '_') : `CF_${Date.now()}`;
+    const newField = {
+      id: `cf_${Date.now()}`,
+      targetObject: newCfTarget,
+      label: newCfLabel,
+      code: generatedCode,
+      type: newCfType,
+      options: newCfOptions,
+      required: newCfReq
+    };
+    setCustomFields([...customFields, newField]);
+    setNewCfLabel('');
+    setNewCfCode('');
+    setNewCfOptions('');
+    onAddLog('Form Builder', `Ajout du champ personnalisé "${newCfLabel}" pour les formulaires ${newCfTarget}`);
+  };
+
+  const handleRemoveCustomField = (id: string) => {
+    setCustomFields(customFields.filter(cf => cf.id !== id));
+  };
 
   // Org Node Inputs
   const [newOrgName, setNewOrgName] = useState('');
@@ -710,6 +757,19 @@ export default function ConfigModule({
           >
             <FolderOpen className="w-4 h-4 text-indigo-600" />
             <span>Catégories de Risques</span>
+          </button>
+
+          <div className="px-3 py-1 font-bold text-slate-400 text-[9px] uppercase tracking-wider pt-3">
+            4. Formulaires & Chantiers Métier
+          </div>
+          <button
+            onClick={() => setActiveTab('formbuilder')}
+            className={`w-full flex items-center space-x-2 px-3 py-2.5 rounded font-bold transition text-left ${
+              activeTab === 'formbuilder' ? 'bg-indigo-50 text-indigo-600' : 'hover:bg-slate-50 text-slate-600'
+            }`}
+          >
+            <Code className="w-4 h-4 text-indigo-600" />
+            <span>Form Builder No-Code</span>
           </button>
         </div>
 
@@ -1774,6 +1834,157 @@ export default function ConfigModule({
                     </button>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: FORM BUILDER NO-CODE */}
+          {activeTab === 'formbuilder' && (
+            <div className="space-y-6 text-left">
+              <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2">
+                    <Code className="w-4 h-4 text-indigo-600" />
+                    Moteur de Création de Formulaires Sans Code (Form Builder No-Code)
+                  </h3>
+                  <p className="text-slate-400 text-[10.5px]">
+                    Ajoutez des champs personnalisés spécifiques à votre secteur d'activité dans les fiches de Risques, Incidents, Actions ou Audits sans écrire une seule ligne de code.
+                  </p>
+                </div>
+              </div>
+
+              {/* Form to Add New Custom Field */}
+              <form onSubmit={handleAddCustomField} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                  Ajouter un Nouveau Champ Métier Personnalisé
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold uppercase block">Cible du Formulaire</label>
+                    <select
+                      value={newCfTarget}
+                      onChange={(e) => setNewCfTarget(e.target.value as any)}
+                      className="w-full bg-white border border-slate-250 rounded p-1.5 text-xs text-slate-800 font-bold"
+                    >
+                      <option value="Risque">Fiche Risque</option>
+                      <option value="Incident">Déclaration Incident</option>
+                      <option value="Action">Plan d'Action</option>
+                      <option value="Audit">Mission d'Audit</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold uppercase block">Intitulé du Champ (Label)</label>
+                    <input 
+                      type="text"
+                      required
+                      placeholder="Ex. Référent Assureur..."
+                      value={newCfLabel}
+                      onChange={(e) => setNewCfLabel(e.target.value)}
+                      className="w-full bg-white border border-slate-250 rounded p-1.5 text-xs text-slate-800 font-bold"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold uppercase block">Code Variable (Optionnel)</label>
+                    <input 
+                      type="text"
+                      placeholder="Ex. VAL_ASSURANCE"
+                      value={newCfCode}
+                      onChange={(e) => setNewCfCode(e.target.value)}
+                      className="w-full bg-white border border-slate-250 rounded p-1.5 text-xs font-mono text-slate-700"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold uppercase block">Type de Champ</label>
+                    <select
+                      value={newCfType}
+                      onChange={(e) => setNewCfType(e.target.value as any)}
+                      className="w-full bg-white border border-slate-250 rounded p-1.5 text-xs text-slate-800 font-bold"
+                    >
+                      <option value="Texte">Texte court</option>
+                      <option value="Nombre">Nombre / Montant (€)</option>
+                      <option value="Liste">Liste Déroulante (Menu)</option>
+                      <option value="Date">Date picker</option>
+                      <option value="Case à cocher">Case à cocher (Booleen)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {newCfType === 'Liste' && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold uppercase block">Options de la Liste (séparées par une virgule)</label>
+                    <input 
+                      type="text"
+                      placeholder="Option 1, Option 2, Option 3..."
+                      value={newCfOptions}
+                      onChange={(e) => setNewCfOptions(e.target.value)}
+                      className="w-full bg-white border border-slate-250 rounded p-1.5 text-xs text-slate-800 font-medium"
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-2">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input 
+                      type="checkbox"
+                      checked={newCfReq}
+                      onChange={(e) => setNewCfReq(e.target.checked)}
+                      className="accent-indigo-600 cursor-pointer"
+                    />
+                    <span className="text-xs font-semibold text-slate-700">Champ Obligatoire pour la saisie</span>
+                  </label>
+
+                  <button
+                    type="submit"
+                    className="py-1.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow text-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Créer le Champ Métier
+                  </button>
+                </div>
+              </form>
+
+              {/* Dynamic Custom Fields Inventory */}
+              <div className="space-y-3">
+                <h4 className="font-extrabold text-slate-800 uppercase text-xs">Champs Personnalisés Actifs dans les Formulaires :</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {customFields.map((field) => (
+                    <div key={field.id} className="p-3.5 bg-white border border-slate-200 rounded-xl shadow-sm flex items-start justify-between gap-3 hover:border-indigo-200">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[9px] bg-indigo-50 text-indigo-750 px-1.5 py-0.5 rounded font-bold">
+                            {field.code}
+                          </span>
+                          <span className="text-[8.5px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded border">
+                            Formulaire {field.targetObject}
+                          </span>
+                          {field.required && (
+                            <span className="text-[8px] bg-rose-100 text-rose-700 font-bold px-1 py-0.2 rounded">
+                              Obligatoire
+                            </span>
+                          )}
+                        </div>
+                        <h5 className="font-bold text-slate-900 text-xs">{field.label}</h5>
+                        <p className="text-slate-400 text-[10px]">
+                          Type de saisie : <strong className="text-slate-600">{field.type}</strong>
+                          {field.options && ` | Options: ${field.options}`}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => handleRemoveCustomField(field.id)}
+                        className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-red-50 cursor-pointer"
+                        title="Supprimer le champ"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}

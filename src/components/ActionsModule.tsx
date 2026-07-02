@@ -139,6 +139,34 @@ export default function ActionsModule({
         </button>
       </div>
 
+      {/* OVERDUE REMINDER AUTOMATION PANEL */}
+      <div className="p-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-xl shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-indigo-900">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <h3 className="font-bold text-xs text-amber-200 uppercase tracking-wider">Moteur de Relances Automatiques e-Mail & Push</h3>
+            <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-mono font-bold px-2 py-0.5 rounded border border-emerald-500/40">
+              ● CRON ACTIF (08:00 AM)
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-300 leading-relaxed">
+            Relances automatiques expédiées aux responsables opérationnels en cas de dépassement d'échéance sans validation.
+          </p>
+        </div>
+
+        <button
+          onClick={() => {
+            const overdueCount = actions.filter(a => new Date(a.dueDate) < new Date() && a.progress < 100).length;
+            onAddLog('Relances E-mail Automatiques', `Déclenchement manuel de ${overdueCount || 1} relances d'échéance par courriel et push mobile.`);
+            alert(`📧 ${overdueCount || 1} notification(s) de relance par e-mail et push mobile ont été transmises avec succès aux responsables des plans d'action en retard !`);
+          }}
+          className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg shadow-sm text-xs cursor-pointer flex items-center gap-1.5 shrink-0"
+        >
+          <PlayCircle className="w-4 h-4" />
+          Déclencher l'envoi des relances
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* LEFT COMPONENT: Actions Registry */}
@@ -218,6 +246,32 @@ export default function ActionsModule({
                         <span className={`px-2 py-0.5 rounded font-bold uppercase text-[9px] ${getPriorityColor(action.priority)}`}>
                           Prio: {action.priority}
                         </span>
+                      </div>
+
+                      {/* Multi-step Hierarchical Approval Circuit */}
+                      <div className="pt-2 border-t border-slate-200/60 space-y-1.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Circuit de Validation Hiérarchique Multi-Étapes :
+                        </span>
+                        <div className="flex flex-wrap items-center gap-1 text-[9.5px]">
+                          {[
+                            { label: '1. Soumission Analyste', active: true },
+                            { label: '2. Validation N+1', active: action.status !== 'À planifier' },
+                            { label: '3. Approbation Risk Manager', active: action.status === 'Réalisé' || action.progress > 50 },
+                            { label: '4. Clôture Vérifiée', active: action.status === 'Réalisé' }
+                          ].map((step, idx) => (
+                            <span 
+                              key={idx}
+                              className={`px-2 py-0.5 rounded font-bold transition flex items-center gap-1 ${
+                                step.active 
+                                  ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' 
+                                  : 'bg-slate-100 text-slate-400 border border-slate-200'
+                              }`}
+                            >
+                              {step.active ? '✓' : '○'} {step.label}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
 

@@ -1,33 +1,41 @@
-# Sogesti GRC - Plateforme Multi-Tenant
+# Sogesti GRC - Plateforme Multi-Tenant & Suite Logicielle GRC
 
-Sogesti GRC est une suite logicielle d'Entreprise de premier plan conçue pour la gestion des Risques, des Audits Internes et de la Conformité Réglementaire. Dotée d'une architecture multi-tenant robuste, elle garantit une étanchéité absolue des données clients tout en offrant une expérience utilisateur fluide et hautement personnalisable inspirée des standards de l'industrie (Odoo).
+Sogesti GRC est une suite logicielle d'Entreprise de premier plan conçue pour la gestion des Risques, des Audits Internes, des Incidents et de la Conformité Réglementaire. Dotée d'une architecture multi-tenant robuste et étanche, elle garantit l'isolement absolu des données clients tout en offrant une expérience utilisateur fluide, guidée et hautement paramétrable.
 
-## 🚀 Fonctionnalités Clés
+---
 
-- **Authentification & Redirection Dynamique** : Une page de connexion centralisée redirigeant instantanément les utilisateurs (SuperAdmin et comptes clients) vers leurs espaces dédiés.
-- **Portail SuperAdministrateur** : 
-  - Gestion des contrats, licences et facturation clients.
-  - Provisionnement de bases de données indépendantes et étanches.
-  - Création de comptes d'accès clients avec identifiants et mots de passe personnalisables.
-  - Journal d'audit système unifié et immuable.
-  - Simulation de plans de secours (MFA, sauvegardes, restauration).
+## 🚀 Fonctionnalités Clés & Modules Métiers
+
+- **Portail de Connexion & Redirection Dynamique** : Authentification centralisée orientant automatiquement les comptes SuperAdmin vers la console centrale et les comptes collaborateurs vers leur environnement d'entreprise dédié.
+- **Espace Démonstration Interactive (Cas Pratiques Pas-à-Pas)** :
+  - **Scénario 1 : Administrateur de l'Entreprise Client** (Gestion de la structure organisationnelle, des comptes utilisateurs, des habilitations et des sessions d'exercice annuel).
+  - **Scénario 2 : Risk Manager de Sogesti S.A.** (Évaluation IFACI $F \times I \times M$, matrice 4x4, plans d'actions et filtres par exercice fiscal).
+  - **Scénario 3 : Analyste d'AeroTech (Terrain)** (Formule mitigée soustraite $P \times I - M$, grille 5x5, déclaration d'incidents de calibrage).
+  - **Scénario 4 : Direction Générale & Auditeur Chef** (Revue des constats d'audits, rapports de conformité consolidés, clôture officielle d'exercice).
+- **Console SuperAdministrateur** :
+  - Pilotage des contrats, licences et facturations clients.
+  - Gestion des comptes d'accès clients et réinitialisation sécurisée des mots de passe.
+  - Surveillance des sauvegardes d'urgence, journal d'audit global et simulation MFA double-facteur.
 - **Espace Client GRC (Multi-Tenant)** :
-  - **Tableau de Bord** : Indicateurs de pilotage, KRI (Key Risk Indicators) et métriques clés.
-  - **Cartographie des Risques** : Identification, évaluation et cotation des risques.
-  - **Calcul & Évaluation** : Automatisation des formules de calcul de criticité brute, efficacité des contrôles et criticité résiduelle.
-  - **Matrice des Risques (Heatmap)** : Représentation visuelle interactive en 4x4 ou 5x5.
-  - **Plans d'Actions** : Suivi rigoureux des mesures d'atténuation.
-  - **Audit Interne** : Pilotage des missions d'audit et suivi des recommandations.
-  - **Conformité & Obligations** : Suivi des référentiels (ISO 27001, RGPD, COSO) et déclaration d'incidents.
-  - **Rapports & Audit Trail** : Génération de synthèses PDF/Excel de conformité et traçabilité complète des logs.
+  - **Tableau de Bord & Comparateur d'Exercices** : Pilotage KRI, taux de couverture des risques et filtre dynamique par Exercice Fiscal (2025, 2026, etc.).
+  - **Cartographie des Risques & Cotation IFACI / Mitigée** : Identification, cotation brute et résiduelle avec support de formules personnalisées par entreprise.
+  - **Matrice des Risques (Heatmap)** : Grilles interactives 4x4 et 5x5 avec projection thermique brute/résiduelle.
+  - **Plans d'Actions & Remédiation** : Tableau Kanban, assignation de responsables et suivi des échéances.
+  - **Audit Interne & Conformité** : Gestion des missions, constats d'audits, référentiels (ISO 27001, RGPD, COSO) et déclaration d'incidents.
+  - **Sessions & Exercices Annuels** : Création, gestion et clôture officielle des exercices fiscaux avec génération automatique du bilan consolidé.
+  - **Rapports & Audit Trail** : Édition de liasses réglementaires et traçabilité immuable de chaque action.
 
-## 🛠️ Stack Technique & Architecture de Déploiement
+---
 
-- **Frontend** : React 18+ orchestré avec Vite et typé en TypeScript.
-- **Styling** : Tailwind CSS pour une interface moderne, réactive et à haute densité d'information.
-- **Micro-Animations** : `motion` pour des transitions fluides et un retour d'expérience optimal.
-- **Déploiement Frontend** : Conçu pour être hébergé sur **Vercel** pour des performances mondiales optimales (Edge).
-- **Base de Données** : Conçu pour utiliser **Supabase (PostgreSQL)** avec une architecture "Database-per-Tenant" (une base physique distincte et étanche par client).
+## 🛠️ Stack Technique & Architecture
+
+- **Frontend** : React 18+ orchestré avec Vite et typé en TypeScript strict.
+- **Styling & UX** : Tailwind CSS avec design moderne, palettes sombres et claires ajustées, composants haute densité.
+- **Micro-Animations** : `motion` pour des transitions fluides et un guidage visuel élégant.
+- **Déploiement Frontend** : Prêt pour hébergement Edge sur **Vercel** avec routage dynamique par sous-domaine/tenant.
+- **Base de Données** : Architecture "Database-per-Tenant" sur **Supabase (PostgreSQL)** garantissant l'étanchéité physique des données.
+
+---
 
 ## 💻 Démarrage en Développement
 
@@ -41,11 +49,13 @@ Sogesti GRC est une suite logicielle d'Entreprise de premier plan conçue pour l
    npm run dev
    ```
 
-3. Ouvrez l'application dans votre navigateur : [http://localhost:3000](http://localhost:3000)
+3. Accédez à l'application dans votre navigateur : [http://localhost:3000](http://localhost:3000)
 
-## 📁 Fichiers d'Architecture et de Documentation Associés
+---
 
-Pour en savoir plus sur les aspects mathématiques, structurels ou pratiques de la plateforme, veuillez vous référer aux fichiers suivants :
-- `SYNTHESE_ARCHITECTURE_FORMATION.md` : Guide complet sur l'organisation hiérarchique et l'étanchéité multi-tenant.
-- `CALCULS_DES_FORMULES_UTILISEES.md` : Détail des calculs de risques bruts, résiduels et efficacité des contrôles.
-- `MANUEL_D_UTILISATION_DE_LAPPLICATION.md` : Guide pas-à-pas pour les administrateurs et utilisateurs finaux.
+## 📁 Documentation Associée
+
+Consultez les guides complémentaires pour approfondir chaque dimension de la plateforme :
+- `SYNTHESE_ARCHITECTURE_FORMATION.md` : Structure organisationnelle, modèle hiérarchique et étanchéité multi-tenant.
+- `CALCULS_DES_FORMULES_UTILISEES.md` : Équations mathématiques (IFACI & Mitigée) et règles de réduction des risques.
+- `MANUEL_D_UTILISATION_DE_LAPPLICATION.md` : Guide utilisateur complet pour l'Espace Démonstration, la Console SuperAdmin et l'Espace Client.

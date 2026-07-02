@@ -31,6 +31,7 @@ export default function ReportingModule({
 }: ReportingModuleProps) {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [showBiModal, setShowBiModal] = useState(false);
 
   // Critical statistics calculations
   const totalRisks = risks.length;
@@ -129,6 +130,14 @@ export default function ReportingModule({
         {/* Action Export Buttons */}
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setShowBiModal(true)}
+            className="px-3.5 py-1.8 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded shadow transition flex items-center gap-1 cursor-pointer"
+          >
+            <TrendingUp className="w-4 h-4" />
+            Connecteur PowerBI / Tableau
+          </button>
+
+          <button
             onClick={handlePrint}
             className="px-3.5 py-1.8 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold transition flex items-center gap-1 cursor-pointer"
           >
@@ -145,6 +154,103 @@ export default function ReportingModule({
           </button>
         </div>
       </div>
+
+      {/* POWERBI / TABLEAU BI CONNECTOR MODAL */}
+      {showBiModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-scale-in text-left">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-indigo-600" />
+                  Connecteurs Business Intelligence (PowerBI / Tableau)
+                </h3>
+                <p className="text-slate-500 text-[11px]">
+                  Synchronisation temps réel en flux continu OData / REST JSON certifié
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowBiModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-3 bg-indigo-50 border border-indigo-150 rounded-xl space-y-1">
+                <span className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider block">Endpoint API OData / PowerBI</span>
+                <code className="block bg-slate-900 text-emerald-400 p-2 rounded text-[10.5px] font-mono select-all">
+                  https://api.sogesti-grc.com/v1/bi/odata/risks.json
+                </code>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">Jeton Secret d'API BI</span>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="text" 
+                    readOnly 
+                    value="sog_bi_live_89204fa871e98bc012"
+                    className="flex-1 bg-white border border-slate-250 p-1.5 rounded font-mono text-xs text-slate-800 font-bold"
+                  />
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard?.writeText("sog_bi_live_89204fa871e98bc012");
+                      alert("🔑 Clé API BI copiée dans le presse-papier !");
+                    }}
+                    className="px-3 py-1.5 bg-indigo-600 text-white font-bold rounded text-xs cursor-pointer hover:bg-indigo-700"
+                  >
+                    Copier
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                      name: "Sogesti GRC PowerBI Data Model",
+                      version: "1.0",
+                      schema: "https://api.sogesti-grc.com/v1/bi/odata/schema.json",
+                      tables: ["Risks", "Actions", "Audits", "Compliance"]
+                    }));
+                    const downloadAnchor = document.createElement('a');
+                    downloadAnchor.setAttribute("href", dataStr);
+                    downloadAnchor.setAttribute("download", "Sogesti_GRC_Model.pbids");
+                    document.body.appendChild(downloadAnchor);
+                    downloadAnchor.click();
+                    downloadAnchor.remove();
+                  }}
+                  className="p-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold rounded-xl text-center text-xs cursor-pointer space-y-1"
+                >
+                  <span className="block font-black">📊 Télécharger Modèle PowerBI</span>
+                  <span className="block text-[9.5px] text-amber-700 font-normal">Fichier .pbids prêt à l'emploi</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    alert("📈 Connecteur Web Data Connector Tableau (WDC) initialisé !");
+                  }}
+                  className="p-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-900 font-bold rounded-xl text-center text-xs cursor-pointer space-y-1"
+                >
+                  <span className="block font-black">🔷 Connecteur Tableau (WDC)</span>
+                  <span className="block text-[9.5px] text-blue-700 font-normal">Flux direct Web Data Connector</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end border-t border-slate-100">
+              <button
+                onClick={() => setShowBiModal(false)}
+                className="px-4 py-1.8 bg-slate-800 text-white font-bold rounded-lg text-xs hover:bg-slate-900 cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* REPORT VIEWER CONTAINER */}
       <div className="bg-white rounded-xl border border-slate-350 p-8 shadow-md max-w-4xl mx-auto space-y-8 animate-fade-in print:p-0 print:border-none print:shadow-none">

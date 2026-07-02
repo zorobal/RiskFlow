@@ -36,7 +36,12 @@ import {
   Check,
   AlertCircle,
   Briefcase,
-  MapPin
+  MapPin,
+  Mail,
+  Send,
+  Key,
+  CheckCircle2,
+  HelpCircle
 } from 'lucide-react';
 import { 
   EntrepriseCliente, 
@@ -137,7 +142,131 @@ export default function SuperAdminModule({
   onRestoreTenantData
 }: SuperAdminModuleProps) {
   // Navigation tabs in SuperAdmin space
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'tenants' | 'licences' | 'users' | 'backups' | 'supervision' | 'support' | 'supabase' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'tenants' | 'licences' | 'users' | 'backups' | 'supervision' | 'support' | 'supabase' | 'settings' | 'smtp'>('dashboard');
+
+  // Gmail / SMTP Server Configuration & Testing States
+  const [smtpForm, setSmtpForm] = useState({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    user: '',
+    pass: '',
+    fromName: 'Sogesti GRC RiskFlow',
+    fromEmail: '',
+    enabled: true
+  });
+  const [testEmailRecipient, setTestEmailRecipient] = useState('');
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+  const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; message?: string; error?: string; suggestion?: string } | null>(null);
+  const [smtpLogs, setSmtpLogs] = useState<any[]>([]);
+  const [autoEmailAlerts, setAutoEmailAlerts] = useState({
+    riskCritical: true,
+    actionAssigned: true,
+    auditLaunched: true,
+    weeklyDigest: false
+  });
+
+  const fetchSmtpConfigAndLogs = async () => {
+    try {
+      const resCfg = await fetch('/api/email/config');
+      if (resCfg.ok) {
+        const data = await resCfg.json();
+        setSmtpForm(prev => ({
+          ...prev,
+          host: data.host || 'smtp.gmail.com',
+          port: data.port || 587,
+          secure: Boolean(data.secure),
+          user: data.user || '',
+          pass: data.hasPass ? '••••••••••••••••' : prev.pass,
+          fromName: data.fromName || 'Sogesti GRC RiskFlow',
+          fromEmail: data.fromEmail || '',
+          enabled: Boolean(data.enabled)
+        }));
+      }
+
+      const resLogs = await fetch('/api/email/logs');
+      if (resLogs.ok) {
+        const dataLogs = await resLogs.json();
+        if (dataLogs.logs) setSmtpLogs(dataLogs.logs);
+      }
+    } catch (e) {
+      console.log('Backend email API initialized or running locally', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchSmtpConfigAndLogs();
+  }, []);
+
+  const handleSaveSmtpConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/email/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...smtpForm,
+          pass: smtpForm.pass.includes('•••') ? undefined : smtpForm.pass
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        triggerAlert('✅ Configuration Gmail / SMTP enregistrée avec succès sur le serveur backend Express !', 'success');
+        addSystemLog('Config SMTP', `Mise à jour des paramètres SMTP (${smtpForm.user})`, 'Succès');
+        fetchSmtpConfigAndLogs();
+      } else {
+        triggerAlert(`Erreur : ${data.error || 'Échec de la sauvegarde'}`, 'error');
+      }
+    } catch (err: any) {
+      triggerAlert(`Erreur réseau : ${err.message}`, 'error');
+    }
+  };
+
+  const handleTestSmtpConnection = async () => {
+    if (!smtpForm.user || (!smtpForm.pass && !smtpForm.pass.includes('•••'))) {
+      triggerAlert('Veuillez renseigner votre adresse e-mail Gmail et votre mot de passe d\'application Google.', 'warning');
+      return;
+    }
+    setIsTestingSmtp(true);
+    setSmtpTestResult(null);
+
+    try {
+      const res = await fetch('/api/email/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          testEmail: testEmailRecipient.trim() || undefined,
+          host: smtpForm.host,
+          port: smtpForm.port,
+          secure: smtpForm.secure,
+          user: smtpForm.user,
+          pass: smtpForm.pass.includes('•••') ? undefined : smtpForm.pass,
+          fromName: smtpForm.fromName,
+          fromEmail: smtpForm.fromEmail || smtpForm.user
+        })
+      });
+
+      const data = await res.json();
+      setSmtpTestResult(data);
+
+      if (data.success) {
+        triggerAlert(data.message || '🎉 Connexion SMTP réussie !', 'success');
+        addSystemLog('Test SMTP', `Test de connexion SMTP réussi pour ${smtpForm.user}`, 'Succès');
+      } else {
+        addSystemLog('Test SMTP', `Échec test connexion SMTP : ${data.error}`, 'Échec');
+      }
+
+      fetchSmtpConfigAndLogs();
+    } catch (err: any) {
+      setSmtpTestResult({
+        success: false,
+        error: `Erreur de communication backend : ${err.message}`,
+        suggestion: 'Vérifiez que le serveur Express tourne sur le port 3000.'
+      });
+    } finally {
+      setIsTestingSmtp(false);
+    }
+  };
 
   // Secteurs d'activité customisables
   const [sectors, setSectors] = useState<string[]>(() => {
@@ -1457,6 +1586,17 @@ export default function SuperAdminModule({
               }`}
             >
               ☁ Intégration Supabase
+            </button>
+            <button 
+              onClick={() => {
+                setActiveTab('smtp');
+                fetchSmtpConfigAndLogs();
+              }}
+              className={`px-3 py-1.5 text-[11px] font-bold rounded transition-colors whitespace-nowrap ${
+                activeTab === 'smtp' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              📧 Serveur SMTP / Gmail
             </button>
           </div>
         </div>
@@ -3104,6 +3244,411 @@ export default function SuperAdminModule({
                 ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ==================== TAB: SMTP GMAIL EMAIL SERVER ==================== */}
+        {activeTab === 'smtp' && (
+          <div className="space-y-6 animate-fade-in text-xs text-slate-300">
+            
+            {/* Header Banner */}
+            <div className="bg-gradient-to-r from-indigo-950/80 via-slate-900 to-slate-900 border border-indigo-500/30 p-5 rounded-xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start space-x-3">
+                <div className="p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-indigo-400 shrink-0">
+                  <Mail className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h2 className="text-base font-bold text-white tracking-tight">Configuration Serveur d'Envoi E-Mails — Gmail SMTP Backend</h2>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${smtpForm.user && smtpForm.pass ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'}`}>
+                      {smtpForm.user && smtpForm.pass ? '🟢 Gmail SMTP Connecté' : '🟡 Non configuré (Mode simulation)'}
+                    </span>
+                  </div>
+                  <p className="text-slate-400 text-xs mt-1 leading-relaxed max-w-3xl">
+                    Administrez l'expédition réelle des notifications e-mails de la plateforme Sogesti GRC RiskFlow. Ce module s'appuie sur le backend Node.js / Express et la bibliothèque <code className="bg-slate-950 px-1 py-0.5 rounded text-indigo-300 font-mono">nodemailer</code> pour délivrer les messages directement via votre compte Gmail ou serveur SMTP d'entreprise.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={fetchSmtpConfigAndLogs}
+                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded flex items-center space-x-1.5 transition-colors cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Actualiser</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+              {/* LEFT COLUMN: Configuration Form */}
+              <div className="lg:col-span-2 space-y-6">
+                
+                {/* SMTP Credentials Form Card */}
+                <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-5 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h3 className="font-bold text-white text-sm flex items-center space-x-2">
+                      <Key className="w-4 h-4 text-indigo-400" />
+                      <span>Paramètres d'Authentification SMTP / Gmail</span>
+                    </h3>
+                    <span className="text-[10px] text-slate-500 font-mono">Serveur backend Express</span>
+                  </div>
+
+                  <form onSubmit={handleSaveSmtpConfig} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Serveur Hôte SMTP</label>
+                        <input 
+                          type="text"
+                          required
+                          className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500"
+                          placeholder="smtp.gmail.com"
+                          value={smtpForm.host}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, host: e.target.value })}
+                        />
+                        <span className="text-[10px] text-slate-500">Défaut pour Gmail : <code className="text-slate-300">smtp.gmail.com</code></span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Port SMTP & Sécurité</label>
+                        <div className="flex items-center space-x-2">
+                          <input 
+                            type="number"
+                            required
+                            className="w-28 bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500"
+                            placeholder="587"
+                            value={smtpForm.port}
+                            onChange={(e) => setSmtpForm({ ...smtpForm, port: Number(e.target.value) })}
+                          />
+                          <label className="flex items-center space-x-2 bg-slate-950 border border-slate-800 px-3 py-2 rounded cursor-pointer hover:bg-slate-850 flex-1">
+                            <input 
+                              type="checkbox"
+                              checked={smtpForm.secure}
+                              onChange={(e) => setSmtpForm({ ...smtpForm, secure: e.target.checked })}
+                              className="rounded border-slate-800 text-indigo-600 focus:ring-0"
+                            />
+                            <span className="text-[11px] text-slate-300 font-medium">SSL Direct (Port 465)</span>
+                          </label>
+                        </div>
+                        <span className="text-[10px] text-slate-500">Port 587 (STARTTLS) ou Port 465 (SSL/TLS)</span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Compte Google / Identifiant SMTP</label>
+                        <input 
+                          type="email"
+                          required
+                          className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500"
+                          placeholder="votre.compte@gmail.com"
+                          value={smtpForm.user}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, user: e.target.value })}
+                        />
+                        <span className="text-[10px] text-slate-500">Adresse Gmail ou Google Workspace d'entreprise</span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Mot de Passe d'Application Google</label>
+                        <input 
+                          type="password"
+                          className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500"
+                          placeholder="xxxx xxxx xxxx xxxx"
+                          value={smtpForm.pass}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, pass: e.target.value })}
+                        />
+                        <span className="text-[10px] text-slate-500">Code de 16 caractères généré dans le Compte Google</span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Nom de l'Expéditeur Affiché</label>
+                        <input 
+                          type="text"
+                          required
+                          className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                          placeholder="Sogesti GRC RiskFlow"
+                          value={smtpForm.fromName}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, fromName: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">E-mail de Réponse / Expéditeur</label>
+                        <input 
+                          type="email"
+                          className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500"
+                          placeholder="noreply@sogesti-grc.com"
+                          value={smtpForm.fromEmail}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, fromEmail: e.target.value })}
+                        />
+                      </div>
+
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                      <label className="flex items-center space-x-2 cursor-pointer select-none">
+                        <input 
+                          type="checkbox"
+                          checked={smtpForm.enabled}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, enabled: e.target.checked })}
+                          className="rounded border-slate-800 text-indigo-600 focus:ring-0 w-4 h-4"
+                        />
+                        <span className="font-bold text-slate-200">Activer le service d'expédition automatique d'e-mails</span>
+                      </label>
+
+                      <button
+                        type="submit"
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2.5 rounded-lg transition-colors flex items-center space-x-2 shadow-lg cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Enregistrer la Configuration SMTP</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Test Connection Panel */}
+                <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h3 className="font-bold text-white text-sm flex items-center space-x-2">
+                      <Send className="w-4 h-4 text-emerald-400" />
+                      <span>Test de Connexion & Envoi d'E-mail de Validation</span>
+                    </h3>
+                    <span className="text-[10px] text-slate-500 font-mono">Banc d'essai SMTP</span>
+                  </div>
+
+                  <p className="text-slate-400 text-xs">
+                    Testez instantanément la validité de vos identifiants Gmail SMTP et envoyez un e-mail de démonstration à l'adresse de votre choix.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <input 
+                      type="email"
+                      className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 text-xs"
+                      placeholder="Saisissez un e-mail destinataire (ex: votre.adresse@domaine.com)"
+                      value={testEmailRecipient}
+                      onChange={(e) => setTestEmailRecipient(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      disabled={isTestingSmtp}
+                      onClick={handleTestSmtpConnection}
+                      className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold px-5 py-2 rounded-lg transition-all flex items-center justify-center space-x-2 shrink-0 cursor-pointer"
+                    >
+                      {isTestingSmtp ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Connexion en cours...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          <span>🧪 Tester la Connexion & Envoyer</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Test Result Feedback Card */}
+                  {smtpTestResult && (
+                    <div className={`p-4 rounded-lg border text-xs space-y-2 animate-fade-in ${
+                      smtpTestResult.success 
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
+                        : 'bg-red-500/10 border-red-500/30 text-red-300'
+                    }`}>
+                      <div className="flex items-start space-x-2">
+                        {smtpTestResult.success ? (
+                          <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
+                        )}
+                        <div className="space-y-1">
+                          <p className="font-bold text-sm">
+                            {smtpTestResult.success ? 'Succès de la connexion Gmail SMTP !' : 'Échec de connexion SMTP'}
+                          </p>
+                          <p className="text-slate-200">{smtpTestResult.message || smtpTestResult.error}</p>
+                          {smtpTestResult.suggestion && (
+                            <p className="text-amber-300/90 text-[11px] mt-1 bg-amber-500/10 p-2 rounded border border-amber-500/20 font-sans">
+                              💡 <strong>Conseil :</strong> {smtpTestResult.suggestion}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Email Dispatch Audit Log Table */}
+                <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div>
+                      <h3 className="font-bold text-white text-sm">Journal d'Expédition des E-Mails (Audit Logs)</h3>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Historique temps réel des messages expédiés par la plateforme</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await fetch('/api/email/logs', { method: 'DELETE' });
+                        fetchSmtpConfigAndLogs();
+                      }}
+                      className="text-[11px] text-slate-400 hover:text-rose-400 flex items-center space-x-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Purger le journal</span>
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-950">
+                          <th className="py-2.5 px-3">Horodatage</th>
+                          <th className="py-2.5 px-3">Destinataire</th>
+                          <th className="py-2.5 px-3">Sujet</th>
+                          <th className="py-2.5 px-3">Type</th>
+                          <th className="py-2.5 px-3">Statut</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                        {smtpLogs.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="py-6 text-center text-slate-500 font-sans">
+                              Aucun e-mail expédié dans la session actuelle.
+                            </td>
+                          </tr>
+                        ) : (
+                          smtpLogs.map((log) => (
+                            <tr key={log.id} className="hover:bg-slate-850/50 transition-colors">
+                              <td className="py-2 px-3 text-slate-400 whitespace-nowrap">
+                                {new Date(log.timestamp).toLocaleTimeString('fr-FR')}
+                              </td>
+                              <td className="py-2 px-3 text-indigo-300 font-semibold">{log.to}</td>
+                              <td className="py-2 px-3 text-slate-200 font-sans truncate max-w-xs">{log.subject}</td>
+                              <td className="py-2 px-3 text-slate-400 font-sans">{log.type}</td>
+                              <td className="py-2 px-3">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-sans ${
+                                  log.status === 'Envoyé' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
+                                  log.status === 'Échec' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30' :
+                                  'bg-slate-800 text-slate-300'
+                                }`}>
+                                  {log.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* RIGHT COLUMN: Guide & Auto Alert Rules */}
+              <div className="space-y-6">
+
+                {/* Google App Password Guide Card */}
+                <div className="bg-slate-900 border border-indigo-500/30 p-5 rounded-xl space-y-4 shadow-xl">
+                  <div className="flex items-center space-x-2 text-indigo-400 border-b border-slate-800 pb-3">
+                    <HelpCircle className="w-5 h-5 text-indigo-400 shrink-0" />
+                    <h3 className="font-bold text-white text-sm">Guide : Mot de passe d'application Google</h3>
+                  </div>
+
+                  <p className="text-slate-300 text-xs leading-relaxed">
+                    Google requiert un <strong>Mot de passe d'application</strong> (16 lettres) pour autoriser l'envoi d'e-mails sécurisé via SMTP sans compromettre votre mot de passe principal.
+                  </p>
+
+                  <div className="space-y-3 font-sans text-xs">
+                    <div className="flex items-start space-x-2.5 p-2.5 bg-slate-950 rounded-lg border border-slate-800">
+                      <span className="font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded text-[11px] shrink-0">Étape 1</span>
+                      <p className="text-slate-300">Connectez-vous à votre Compte Google et activez la <strong>Validation en 2 étapes (2FA)</strong> dans l'onglet Sécurité.</p>
+                    </div>
+
+                    <div className="flex items-start space-x-2.5 p-2.5 bg-slate-950 rounded-lg border border-slate-800">
+                      <span className="font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded text-[11px] shrink-0">Étape 2</span>
+                      <p className="text-slate-300">Rendez-vous sur la page Google : <code className="text-indigo-300 bg-slate-900 px-1 py-0.5 rounded font-mono text-[10px]">myaccount.google.com/apppasswords</code></p>
+                    </div>
+
+                    <div className="flex items-start space-x-2.5 p-2.5 bg-slate-950 rounded-lg border border-slate-800">
+                      <span className="font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded text-[11px] shrink-0">Étape 3</span>
+                      <p className="text-slate-300">Saisissez le nom d'application <strong className="text-white">"Sogesti GRC RiskFlow"</strong> puis cliquez sur <strong>Créer</strong>.</p>
+                    </div>
+
+                    <div className="flex items-start space-x-2.5 p-2.5 bg-slate-950 rounded-lg border border-slate-800">
+                      <span className="font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded text-[11px] shrink-0">Étape 4</span>
+                      <p className="text-slate-300">Copiez la clé de 16 caractères générée (ex : <code className="text-emerald-400 font-mono">abcd efgh ijkl mnop</code>) et collez-la dans le champ ci-contre.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Automated Operational Triggers */}
+                <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4 shadow-xl">
+                  <div className="border-b border-slate-800 pb-3">
+                    <h3 className="font-bold text-white text-sm">Règles de Déclenchement Automatique</h3>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Sélectionnez les évènements générant un e-mail automatique</p>
+                  </div>
+
+                  <div className="space-y-3 text-xs">
+                    <label className="flex items-start space-x-3 p-2.5 bg-slate-950 rounded-lg border border-slate-850 cursor-pointer hover:bg-slate-850 transition-colors">
+                      <input 
+                        type="checkbox"
+                        checked={autoEmailAlerts.riskCritical}
+                        onChange={(e) => setAutoEmailAlerts({ ...autoEmailAlerts, riskCritical: e.target.checked })}
+                        className="rounded border-slate-800 text-indigo-600 focus:ring-0 mt-0.5 w-4 h-4"
+                      />
+                      <div>
+                        <span className="font-bold text-slate-200 block">Création / Modification d'un Risque Critique</span>
+                        <span className="text-slate-400 text-[10px] block mt-0.5">Alerter le Risk Manager lorsqu'un risque brut ou net dépasse la note de 15/25.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start space-x-3 p-2.5 bg-slate-950 rounded-lg border border-slate-850 cursor-pointer hover:bg-slate-850 transition-colors">
+                      <input 
+                        type="checkbox"
+                        checked={autoEmailAlerts.actionAssigned}
+                        onChange={(e) => setAutoEmailAlerts({ ...autoEmailAlerts, actionAssigned: e.target.checked })}
+                        className="rounded border-slate-800 text-indigo-600 focus:ring-0 mt-0.5 w-4 h-4"
+                      />
+                      <div>
+                        <span className="font-bold text-slate-200 block">Assignation d'un Plan d'Action</span>
+                        <span className="text-slate-400 text-[10px] block mt-0.5">Notifier le responsable désigné avec le détail des objectifs et la date limite.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start space-x-3 p-2.5 bg-slate-950 rounded-lg border border-slate-850 cursor-pointer hover:bg-slate-850 transition-colors">
+                      <input 
+                        type="checkbox"
+                        checked={autoEmailAlerts.auditLaunched}
+                        onChange={(e) => setAutoEmailAlerts({ ...autoEmailAlerts, auditLaunched: e.target.checked })}
+                        className="rounded border-slate-800 text-indigo-600 focus:ring-0 mt-0.5 w-4 h-4"
+                      />
+                      <div>
+                        <span className="font-bold text-slate-200 block">Lancement d'une Mission d'Audit</span>
+                        <span className="text-slate-400 text-[10px] block mt-0.5">Transmettre la lettre de mission aux auditeurs et responsables d'entités.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start space-x-3 p-2.5 bg-slate-950 rounded-lg border border-slate-850 cursor-pointer hover:bg-slate-850 transition-colors">
+                      <input 
+                        type="checkbox"
+                        checked={autoEmailAlerts.weeklyDigest}
+                        onChange={(e) => setAutoEmailAlerts({ ...autoEmailAlerts, weeklyDigest: e.target.checked })}
+                        className="rounded border-slate-800 text-indigo-600 focus:ring-0 mt-0.5 w-4 h-4"
+                      />
+                      <div>
+                        <span className="font-bold text-slate-200 block">Synthèse Hebdomadaire Automatique</span>
+                        <span className="text-slate-400 text-[10px] block mt-0.5">Envoyer chaque lundi un résumé exécutif du niveau d'exposition au Comité de Direction.</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
           </div>
         )}
 

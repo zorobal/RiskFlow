@@ -184,14 +184,6 @@ export default function App() {
     }
   };
 
-  const handleDeleteSession = (id: string) => {
-    const sessionToDelete = sessions.find(s => s.id === id);
-    if (sessionToDelete) {
-      setSessions(prev => prev.filter(s => s.id !== id));
-      addAuditLog('Administration', `Suppression de la session d'exercice ${sessionToDelete.annee}`);
-    }
-  };
-
   const [isSuperAdminMode, setIsSuperAdminMode] = useState<boolean>(() => {
     return localStorage.getItem('grc_superAdminMode19') === 'true';
   });
@@ -836,7 +828,6 @@ export default function App() {
                 sessions={sessions}
                 onAddSession={handleAddSession}
                 onUpdateSession={handleUpdateSession}
-                onDeleteSession={handleDeleteSession}
               />
             )}
 
