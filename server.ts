@@ -11,19 +11,59 @@ const PORT = 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
-// Global runtime SMTP configuration with env fallbacks
-let smtpConfig = {
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587', 10),
-  secure: process.env.SMTP_SECURE === 'true', // true for 465, false for 587
-  user: process.env.SMTP_USER || '',
-  pass: process.env.SMTP_PASS || '',
-  fromName: process.env.SMTP_FROM_NAME || 'Sogesti GRC RiskFlow',
-  fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'noreply@sogesti-grc.com',
-  enabled: true,
+// Tenant-isolated SMTP configurations
+interface SmtpConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+  fromName: string;
+  fromEmail: string;
+  enabled: boolean;
+}
+
+const tenantSmtpConfigs: Record<string, SmtpConfig> = {
+  tenant1: {
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_SECURE === 'true',
+    user: process.env.SMTP_USER || 'smtp.sogesti@gmail.com',
+    pass: process.env.SMTP_PASS || '',
+    fromName: process.env.SMTP_FROM_NAME || 'Sogesti S.A. GRC RiskFlow',
+    fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'noreply@sogesti-grc.com',
+    enabled: true,
+  },
+  tenant2: {
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    user: 'smtp.aerotech@gmail.com',
+    pass: '',
+    fromName: 'AeroTech West Africa - Sécurité & Risques',
+    fromEmail: 'grc@aerotech-wa.com',
+    enabled: true,
+  }
 };
 
-// Email Dispatch Audit Log
+function getTenantSmtpConfig(tenantId: string): SmtpConfig {
+  const tid = tenantId || 'tenant1';
+  if (!tenantSmtpConfigs[tid]) {
+    tenantSmtpConfigs[tid] = {
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      user: '',
+      pass: '',
+      fromName: `Sogesti GRC - ${tid}`,
+      fromEmail: `noreply@${tid}.com`,
+      enabled: true,
+    };
+  }
+  return tenantSmtpConfigs[tid];
+}
+
+// Email Dispatch Audit Log per tenant
 interface EmailLogEntry {
   id: string;
   timestamp: string;
@@ -33,25 +73,35 @@ interface EmailLogEntry {
   status: 'Envoyé' | 'Échec' | 'Simulé';
   details?: string;
   error?: string;
+  tenantId?: string;
 }
 
-const emailLogs: EmailLogEntry[] = [
-  {
-    id: 'msg-init-1',
-    timestamp: new Date().toISOString(),
-    to: 'riskmanager@sogesti-grc.com',
-    subject: 'Initialisation du Service d\'Expédition Gmail SMTP',
-    type: 'Système',
-    status: 'Envoyé',
-    details: 'Serveur d\'envoi SMTP initialisé sur le port 587 (smtp.gmail.com)'
+const tenantEmailLogs: Record<string, EmailLogEntry[]> = {
+  tenant1: [
+    {
+      id: 'msg-init-1',
+      timestamp: new Date().toISOString(),
+      to: 'riskmanager@sogesti-grc.com',
+      subject: 'Initialisation du Service d\'Expédition Gmail SMTP Sogesti S.A.',
+      type: 'Système',
+      status: 'Envoyé',
+      details: 'Serveur d\'envoi SMTP initialisé sur le port 587 (smtp.gmail.com)',
+      tenantId: 'tenant1'
+    }
+  ]
+};
+
+function getTenantEmailLogs(tenantId: string): EmailLogEntry[] {
+  const tid = tenantId || 'tenant1';
+  if (!tenantEmailLogs[tid]) {
+    tenantEmailLogs[tid] = [];
   }
-];
+  return tenantEmailLogs[tid];
+}
 
 // Helper to create transport
-function createTransporter(customConfig?: typeof smtpConfig) {
-  const cfg = customConfig || smtpConfig;
-
-  // If host is gmail or port is 465/587
+function createTransporter(customConfig: SmtpConfig) {
+  const cfg = customConfig;
   const isGmail = cfg.host.includes('gmail.com');
 
   if (isGmail) {
@@ -67,13 +117,13 @@ function createTransporter(customConfig?: typeof smtpConfig) {
   return nodemailer.createTransport({
     host: cfg.host,
     port: cfg.port,
-    secure: cfg.secure, // true for 465, false for other ports
+    secure: cfg.secure,
     auth: cfg.user && cfg.pass ? {
       user: cfg.user,
       pass: cfg.pass,
     } : undefined,
     tls: {
-      rejectUnauthorized: false // Avoid self-signed certificate issues in dev/test
+      rejectUnauthorized: false
     }
   });
 }
@@ -82,67 +132,77 @@ function createTransporter(customConfig?: typeof smtpConfig) {
 
 // GET /api/health
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'Sogesti GRC Express Email Backend' });
+  res.json({ status: 'ok', service: 'Sogesti GRC Express Multi-Tenant Email Backend' });
 });
 
-// GET /api/email/config - Get current SMTP settings (masked password)
-app.get('/api/email/config', (req, res) => {
+// GET /api/email/config or /api/email/config/:tenantId
+app.get(['/api/email/config', '/api/email/config/:tenantId'], (req, res) => {
+  const tenantId = req.params.tenantId || (req.query.tenantId as string) || 'tenant1';
+  const cfg = getTenantSmtpConfig(tenantId);
+
   res.json({
-    host: smtpConfig.host,
-    port: smtpConfig.port,
-    secure: smtpConfig.secure,
-    user: smtpConfig.user,
-    hasPass: Boolean(smtpConfig.pass),
-    passMasked: smtpConfig.pass ? '••••••••••••••••' : '',
-    fromName: smtpConfig.fromName,
-    fromEmail: smtpConfig.fromEmail,
-    enabled: smtpConfig.enabled,
-    isGmail: smtpConfig.host.includes('gmail.com'),
+    tenantId,
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.secure,
+    user: cfg.user,
+    hasPass: Boolean(cfg.pass),
+    passMasked: cfg.pass ? '••••••••••••••••' : '',
+    fromName: cfg.fromName,
+    fromEmail: cfg.fromEmail,
+    enabled: cfg.enabled,
+    isGmail: cfg.host.includes('gmail.com'),
   });
 });
 
-// POST /api/email/config - Save dynamic SMTP settings from SuperAdmin UI
-app.post('/api/email/config', (req, res) => {
+// POST /api/email/config or /api/email/config/:tenantId
+app.post(['/api/email/config', '/api/email/config/:tenantId'], (req, res) => {
+  const tenantId = req.params.tenantId || req.body.tenantId || (req.query.tenantId as string) || 'tenant1';
   const { host, port, secure, user, pass, fromName, fromEmail, enabled } = req.body;
+  const cfg = getTenantSmtpConfig(tenantId);
 
-  if (host !== undefined) smtpConfig.host = host;
-  if (port !== undefined) smtpConfig.port = parseInt(port, 10);
-  if (secure !== undefined) smtpConfig.secure = Boolean(secure);
-  if (user !== undefined) smtpConfig.user = user;
-  if (pass !== undefined && pass !== '') smtpConfig.pass = pass; // Only update pass if provided
-  if (fromName !== undefined) smtpConfig.fromName = fromName;
-  if (fromEmail !== undefined) smtpConfig.fromEmail = fromEmail;
-  if (enabled !== undefined) smtpConfig.enabled = Boolean(enabled);
+  if (host !== undefined) cfg.host = host;
+  if (port !== undefined) cfg.port = parseInt(port, 10);
+  if (secure !== undefined) cfg.secure = Boolean(secure);
+  if (user !== undefined) cfg.user = user;
+  if (pass !== undefined && pass !== '') cfg.pass = pass;
+  if (fromName !== undefined) cfg.fromName = fromName;
+  if (fromEmail !== undefined) cfg.fromEmail = fromEmail;
+  if (enabled !== undefined) cfg.enabled = Boolean(enabled);
 
-  console.log(`[SMTP CONFIG UPDATED] Host: ${smtpConfig.host}, User: ${smtpConfig.user}`);
+  console.log(`[SMTP CONFIG UPDATED for ${tenantId}] Host: ${cfg.host}, User: ${cfg.user}`);
 
   res.json({
     success: true,
-    message: 'Configuration SMTP mise à jour avec succès.',
+    message: `Configuration SMTP de l'entreprise (${tenantId}) mise à jour avec succès.`,
     config: {
-      host: smtpConfig.host,
-      port: smtpConfig.port,
-      secure: smtpConfig.secure,
-      user: smtpConfig.user,
-      fromName: smtpConfig.fromName,
-      fromEmail: smtpConfig.fromEmail,
-      enabled: smtpConfig.enabled
+      tenantId,
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.secure,
+      user: cfg.user,
+      fromName: cfg.fromName,
+      fromEmail: cfg.fromEmail,
+      enabled: cfg.enabled
     }
   });
 });
 
-// POST /api/email/test - Test connection & optionally send test email
-app.post('/api/email/test', async (req, res) => {
+// POST /api/email/test or /api/email/test/:tenantId
+app.post(['/api/email/test', '/api/email/test/:tenantId'], async (req, res) => {
+  const tenantId = req.params.tenantId || req.body.tenantId || (req.query.tenantId as string) || 'tenant1';
   const { testEmail, host, port, secure, user, pass, fromName, fromEmail } = req.body;
+  const currentCfg = getTenantSmtpConfig(tenantId);
+  const logs = getTenantEmailLogs(tenantId);
 
-  const testCfg = {
-    host: host || smtpConfig.host,
-    port: port ? parseInt(port, 10) : smtpConfig.port,
-    secure: secure !== undefined ? Boolean(secure) : smtpConfig.secure,
-    user: user !== undefined ? user : smtpConfig.user,
-    pass: pass !== undefined && pass !== '' ? pass : smtpConfig.pass,
-    fromName: fromName || smtpConfig.fromName,
-    fromEmail: fromEmail || smtpConfig.fromEmail,
+  const testCfg: SmtpConfig = {
+    host: host || currentCfg.host,
+    port: port ? parseInt(port, 10) : currentCfg.port,
+    secure: secure !== undefined ? Boolean(secure) : currentCfg.secure,
+    user: user !== undefined ? user : currentCfg.user,
+    pass: pass !== undefined && pass !== '' ? pass : currentCfg.pass,
+    fromName: fromName || currentCfg.fromName,
+    fromEmail: fromEmail || currentCfg.fromEmail,
     enabled: true
   };
 
@@ -155,11 +215,8 @@ app.post('/api/email/test', async (req, res) => {
 
   try {
     const transporter = createTransporter(testCfg);
-    
-    // Step 1: Verify SMTP Server connection
     await transporter.verify();
 
-    // Step 2: Send test email if recipient requested
     let mailSentInfo = null;
     if (testEmail) {
       mailSentInfo = await transporter.sendMail({
@@ -167,10 +224,10 @@ app.post('/api/email/test', async (req, res) => {
         to: testEmail,
         subject: '🧪 [Sogesti GRC RiskFlow] Test d\'envoi e-mail réussi !',
         html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e2e8f0; borderRadius: 12px; max-width: 600px; margin: 0 auto;">
+          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #4f46e5; padding: 15px; border-radius: 8px; text-align: center; color: white;">
               <h2 style="margin: 0; font-size: 20px;">Sogesti GRC RiskFlow</h2>
-              <p style="margin: 5px 0 0 0; font-size: 13px;">Test d'expédition e-mail Gmail SMTP</p>
+              <p style="margin: 5px 0 0 0; font-size: 13px;">Test d'expédition e-mail Gmail SMTP — Entreprise : ${tenantId}</p>
             </div>
             <div style="padding: 20px 0;">
               <h3 style="color: #1e293b; margin-top: 0;">Félicitations ! 🎉</h3>
@@ -178,31 +235,29 @@ app.post('/api/email/test', async (req, res) => {
                 Votre serveur d'envoi d'e-mails Gmail SMTP a été correctement configuré et connecté à la plateforme <strong>Sogesti GRC RiskFlow</strong>.
               </p>
               <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; font-size: 13px; color: #334155; font-family: monospace;">
+                • Entreprise : ${tenantId}<br/>
                 • Serveur Hôte : ${testCfg.host}:${testCfg.port}<br/>
                 • Compte d'expédition : ${testCfg.user}<br/>
                 • Expéditeur affiché : ${testCfg.fromName}<br/>
                 • Horodatage : ${new Date().toLocaleString('fr-FR')}
               </div>
-              <p style="color: #64748b; font-size: 12px; margin-top: 20px;">
-                Ceci est un message de test automatique envoyé par le module SuperAdmin de Sogesti GRC.
-              </p>
             </div>
-            <div style="border-top: 1px solid #e2e8f0; pt: 10px; text-align: center; font-size: 11px; color: #94a3b8;">
+            <div style="border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; font-size: 11px; color: #94a3b8;">
               &copy; 2026 Sogesti International S.A. — Système de Gestion Globale des Risques & Conformité
             </div>
           </div>
         `
       });
 
-      // Log sent test
-      emailLogs.unshift({
+      logs.unshift({
         id: `msg-${Date.now()}`,
         timestamp: new Date().toISOString(),
         to: testEmail,
         subject: '🧪 Test d\'envoi e-mail réussi !',
         type: 'Test SMTP',
         status: 'Envoyé',
-        details: `MessageID: ${mailSentInfo.messageId || 'OK'}`
+        details: `MessageID: ${mailSentInfo.messageId || 'OK'}`,
+        tenantId
       });
     }
 
@@ -216,17 +271,17 @@ app.post('/api/email/test', async (req, res) => {
 
   } catch (err: any) {
     console.error('[SMTP TEST ERROR]', err);
-
     const errorMessage = err?.message || 'Erreur inconnue lors du test SMTP';
 
-    emailLogs.unshift({
+    logs.unshift({
       id: `msg-err-${Date.now()}`,
       timestamp: new Date().toISOString(),
       to: testEmail || 'N/A',
       subject: 'Test SMTP',
       type: 'Test SMTP',
       status: 'Échec',
-      error: errorMessage
+      error: errorMessage,
+      tenantId
     });
 
     res.status(500).json({
@@ -237,9 +292,12 @@ app.post('/api/email/test', async (req, res) => {
   }
 });
 
-// POST /api/email/send - Dispatch an automated operational email
-app.post('/api/email/send', async (req, res) => {
+// POST /api/email/send or /api/email/send/:tenantId
+app.post(['/api/email/send', '/api/email/send/:tenantId'], async (req, res) => {
+  const tenantId = req.params.tenantId || req.body.tenantId || (req.query.tenantId as string) || 'tenant1';
   const { to, subject, html, text, type, fromName } = req.body;
+  const smtpCfg = getTenantSmtpConfig(tenantId);
+  const logs = getTenantEmailLogs(tenantId);
 
   if (!to || !subject || (!html && !text)) {
     return res.status(400).json({
@@ -248,8 +306,7 @@ app.post('/api/email/send', async (req, res) => {
     });
   }
 
-  // If SMTP is not configured or disabled, fallback to simulated logging
-  if (!smtpConfig.user || !smtpConfig.pass) {
+  if (!smtpCfg.user || !smtpCfg.pass) {
     const entry: EmailLogEntry = {
       id: `sim-${Date.now()}`,
       timestamp: new Date().toISOString(),
@@ -257,23 +314,23 @@ app.post('/api/email/send', async (req, res) => {
       subject,
       type: type || 'Notification Opérationnelle',
       status: 'Simulé',
-      details: 'Simulation d\'envoi (Identifiants Gmail SMTP non renseignés dans SuperAdmin)'
+      details: `Simulation d'envoi (${tenantId}: Identifiants Gmail SMTP non renseignés)`,
+      tenantId
     };
-    emailLogs.unshift(entry);
+    logs.unshift(entry);
 
     return res.json({
       success: true,
       simulated: true,
-      message: 'Email simulé en local (Configurez Gmail SMTP dans le module SuperAdmin pour l\'expédition réelle).',
+      message: 'Email simulé en local (Configurez votre serveur SMTP dans l\'administration de votre entreprise).',
       log: entry
     });
   }
 
   try {
-    const transporter = createTransporter();
-    
-    const senderName = fromName || smtpConfig.fromName;
-    const senderEmail = smtpConfig.fromEmail || smtpConfig.user;
+    const transporter = createTransporter(smtpCfg);
+    const senderName = fromName || smtpCfg.fromName;
+    const senderEmail = smtpCfg.fromEmail || smtpCfg.user;
 
     const info = await transporter.sendMail({
       from: `"${senderName}" <${senderEmail}>`,
@@ -290,9 +347,10 @@ app.post('/api/email/send', async (req, res) => {
       subject,
       type: type || 'Notification Opérationnelle',
       status: 'Envoyé',
-      details: `Expédié via Gmail SMTP (Message ID: ${info.messageId})`
+      details: `Expédié via Gmail SMTP (Message ID: ${info.messageId})`,
+      tenantId
     };
-    emailLogs.unshift(entry);
+    logs.unshift(entry);
 
     res.json({
       success: true,
@@ -312,9 +370,10 @@ app.post('/api/email/send', async (req, res) => {
       subject,
       type: type || 'Notification Opérationnelle',
       status: 'Échec',
-      error: errorMsg
+      error: errorMsg,
+      tenantId
     };
-    emailLogs.unshift(entry);
+    logs.unshift(entry);
 
     res.status(500).json({
       success: false,
@@ -324,18 +383,23 @@ app.post('/api/email/send', async (req, res) => {
   }
 });
 
-// GET /api/email/logs - Get email audit logs
-app.get('/api/email/logs', (req, res) => {
+// GET /api/email/logs or /api/email/logs/:tenantId
+app.get(['/api/email/logs', '/api/email/logs/:tenantId'], (req, res) => {
+  const tenantId = req.params.tenantId || (req.query.tenantId as string) || 'tenant1';
+  const logs = getTenantEmailLogs(tenantId);
   res.json({
+    tenantId,
     success: true,
-    logs: emailLogs.slice(0, 100) // return last 100 logs
+    logs: logs.slice(0, 100)
   });
 });
 
-// DELETE /api/email/logs - Clear logs
-app.delete('/api/email/logs', (req, res) => {
-  emailLogs.length = 0;
-  res.json({ success: true, message: 'Journal des e-mails réinitialisé.' });
+// DELETE /api/email/logs or /api/email/logs/:tenantId
+app.delete(['/api/email/logs', '/api/email/logs/:tenantId'], (req, res) => {
+  const tenantId = req.params.tenantId || (req.query.tenantId as string) || 'tenant1';
+  const logs = getTenantEmailLogs(tenantId);
+  logs.length = 0;
+  res.json({ success: true, message: `Journal des e-mails de l'entreprise (${tenantId}) réinitialisé.` });
 });
 
 // --- VITE / STATIC SERVING ---

@@ -824,10 +824,13 @@ export default function App() {
                 onAddTenant={handleAddTenant}
                 auditLogs={auditLogs}
                 activeTenantId={activeTenantId}
-                initialTab={adminTab}
+                initialTab={adminTab as any}
                 sessions={sessions}
                 onAddSession={handleAddSession}
                 onUpdateSession={handleUpdateSession}
+                licence={activeLicence}
+                tenantConfig={activeTenantConfig}
+                onAddLog={addAuditLog}
               />
             )}
 

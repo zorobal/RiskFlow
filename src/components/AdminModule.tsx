@@ -16,9 +16,21 @@ import {
   Edit,
   Power,
   Check,
-  X
+  X,
+  Mail,
+  Send,
+  Server,
+  Key,
+  CheckCircle2,
+  AlertTriangle,
+  RefreshCw,
+  HelpCircle,
+  ToggleLeft,
+  ToggleRight,
+  FileText,
+  Sparkles
 } from 'lucide-react';
-import { User, TenantConfig, AuditLog, Role, SessionExercice } from '../types';
+import { User, TenantConfig, AuditLog, Role, SessionExercice, Licence } from '../types';
 
 interface AdminModuleProps {
   users: User[];
@@ -29,10 +41,13 @@ interface AdminModuleProps {
   onAddTenant: (name: string) => void;
   auditLogs: AuditLog[];
   activeTenantId: string;
-  initialTab?: 'users' | 'tenants' | 'audit' | 'sessions';
+  initialTab?: 'users' | 'tenants' | 'audit' | 'sessions' | 'smtp';
   sessions: SessionExercice[];
   onAddSession: (s: SessionExercice) => void;
   onUpdateSession: (s: SessionExercice) => void;
+  licence?: Licence;
+  tenantConfig?: TenantConfig;
+  onAddLog?: (category: string, details: string) => void;
 }
 
 export default function AdminModule({
@@ -47,9 +62,12 @@ export default function AdminModule({
   initialTab,
   sessions,
   onAddSession,
-  onUpdateSession
+  onUpdateSession,
+  licence,
+  tenantConfig,
+  onAddLog
 }: AdminModuleProps) {
-  const [activeTab, setActiveTab] = useState<'users' | 'tenants' | 'audit' | 'sessions'>(initialTab || 'users');
+  const [activeTab, setActiveTab] = useState<'users' | 'tenants' | 'audit' | 'sessions' | 'smtp'>(initialTab || 'users');
 
   // Edit user state
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -66,6 +84,164 @@ export default function AdminModule({
 
   const [closingSession, setClosingSession] = useState<SessionExercice | null>(null);
   const [bilanAnnuelInput, setBilanAnnuelInput] = useState('');
+
+  // Check if current enterprise license includes SMTP module
+  const hasSmtpModule = licence?.modulesActives?.some(m => m === 'Serveur SMTP' || m === 'SMTP');
+
+  // Enterprise SMTP Configuration State
+  const [smtpHost, setSmtpHost] = useState('smtp.gmail.com');
+  const [smtpPort, setSmtpPort] = useState(587);
+  const [smtpSecure, setSmtpSecure] = useState(false);
+  const [smtpUser, setSmtpUser] = useState('');
+  const [smtpPass, setSmtpPass] = useState('');
+  const [smtpFromName, setSmtpFromName] = useState('');
+  const [smtpFromEmail, setSmtpFromEmail] = useState('');
+  const [smtpEnabled, setSmtpEnabled] = useState(true);
+  const [smtpHasPass, setSmtpHasPass] = useState(false);
+  const [testRecipient, setTestRecipient] = useState('');
+  const [smtpLogs, setSmtpLogs] = useState<any[]>([]);
+  const [isSavingSmtp, setIsSavingSmtp] = useState(false);
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+  const [smtpStatusMsg, setSmtpStatusMsg] = useState<{ type: 'success' | 'error'; text: string; details?: string } | null>(null);
+  const [showAppPassHelp, setShowAppPassHelp] = useState(false);
+  const [licenseUpgradeRequested, setLicenseUpgradeRequested] = useState(false);
+
+  // Fetch SMTP config & logs when switching to 'smtp' tab or when activeTenantId changes
+  React.useEffect(() => {
+    if (activeTab === 'smtp' && activeTenantId) {
+      fetch(`/api/email/config/${activeTenantId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data) {
+            setSmtpHost(data.host || 'smtp.gmail.com');
+            setSmtpPort(data.port || 587);
+            setSmtpSecure(Boolean(data.secure));
+            setSmtpUser(data.user || '');
+            setSmtpFromName(data.fromName || (tenantConfig?.companyName ? `${tenantConfig.companyName} GRC` : `Sogesti GRC - ${activeTenantId}`));
+            setSmtpFromEmail(data.fromEmail || data.user || '');
+            setSmtpEnabled(data.enabled !== false);
+            setSmtpHasPass(Boolean(data.hasPass));
+          }
+        })
+        .catch(err => console.error('Error loading SMTP config:', err));
+
+      fetch(`/api/email/logs/${activeTenantId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.logs) {
+            setSmtpLogs(data.logs);
+          }
+        })
+        .catch(err => console.error('Error loading SMTP logs:', err));
+    }
+  }, [activeTab, activeTenantId, tenantConfig]);
+
+  const handleSaveSmtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingSmtp(true);
+    setSmtpStatusMsg(null);
+    try {
+      const res = await fetch(`/api/email/config/${activeTenantId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpSecure,
+          user: smtpUser,
+          pass: smtpPass,
+          fromName: smtpFromName,
+          fromEmail: smtpFromEmail,
+          enabled: smtpEnabled,
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSmtpStatusMsg({
+          type: 'success',
+          text: `Configuration SMTP de l'entreprise enregistrée avec succès !`
+        });
+        if (smtpPass) setSmtpHasPass(true);
+        if (onAddLog) onAddLog('Configuration SMTP', `Mise à jour du serveur SMTP d'entreprise (${tenantConfig?.companyName || activeTenantId})`);
+      } else {
+        setSmtpStatusMsg({
+          type: 'error',
+          text: data.error || 'Erreur lors de la sauvegarde de la configuration SMTP.'
+        });
+      }
+    } catch (err: any) {
+      setSmtpStatusMsg({
+        type: 'error',
+        text: 'Impossible de joindre le serveur Express backend.',
+        details: err?.message
+      });
+    } finally {
+      setIsSavingSmtp(false);
+    }
+  };
+
+  const handleTestSmtp = async () => {
+    if (!testRecipient) {
+      setSmtpStatusMsg({
+        type: 'error',
+        text: 'Veuillez renseigner une adresse e-mail destinataire pour recevoir le message de test.'
+      });
+      return;
+    }
+    setIsTestingSmtp(true);
+    setSmtpStatusMsg(null);
+    try {
+      const res = await fetch(`/api/email/test/${activeTenantId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          testEmail: testRecipient,
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpSecure,
+          user: smtpUser,
+          pass: smtpPass,
+          fromName: smtpFromName,
+          fromEmail: smtpFromEmail,
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSmtpStatusMsg({
+          type: 'success',
+          text: data.message
+        });
+        if (onAddLog) onAddLog('Test SMTP', `Test d'envoi e-mail réussi vers ${testRecipient}`);
+      } else {
+        setSmtpStatusMsg({
+          type: 'error',
+          text: data.error || 'Échec de la connexion SMTP.',
+          details: data.suggestion || data.error
+        });
+      }
+      fetch(`/api/email/logs/${activeTenantId}`)
+        .then(r => r.json())
+        .then(d => d && d.logs && setSmtpLogs(d.logs));
+    } catch (err: any) {
+      setSmtpStatusMsg({
+        type: 'error',
+        text: 'Erreur réseau lors de la tentative de test SMTP.',
+        details: err?.message
+      });
+    } finally {
+      setIsTestingSmtp(false);
+    }
+  };
+
+  const handleClearSmtpLogs = async () => {
+    try {
+      await fetch(`/api/email/logs/${activeTenantId}`, { method: 'DELETE' });
+      setSmtpLogs([]);
+      if (onAddLog) onAddLog('Purge Logs SMTP', `Réinitialisation du journal des e-mails expédiés`);
+    } catch (err) {
+      console.error('Error clearing logs:', err);
+    }
+  };
 
   React.useEffect(() => {
     if (initialTab) {
@@ -213,6 +389,23 @@ export default function AdminModule({
           >
             <Briefcase className="w-4 h-4 text-emerald-600" />
             <span>📅 Sessions & Exercices</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('smtp')}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded font-bold transition text-left ${
+              activeTab === 'smtp' ? 'bg-indigo-50 text-indigo-600' : 'hover:bg-slate-50 text-slate-600'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <Mail className="w-4 h-4 text-indigo-600" />
+              <span>📧 Serveur SMTP / Gmail</span>
+            </div>
+            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+              hasSmtpModule ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+            }`}>
+              {hasSmtpModule ? 'Inclus' : 'Sur Option'}
+            </span>
           </button>
         </div>
 
@@ -741,6 +934,399 @@ export default function AdminModule({
                         <X className="w-3.5 h-3.5" />
                         Fermer
                       </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SMTP SERVER CONFIGURATION TAB (Enterprise Tenant Level) */}
+          {activeTab === 'smtp' && (
+            <div className="space-y-6">
+              <div className="border-b border-slate-100 pb-3 flex flex-wrap justify-between items-center gap-2">
+                <div>
+                  <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-indigo-600" />
+                    Configuration du Serveur d'Envoi E-mails (Gmail SMTP)
+                  </h3>
+                  <p className="text-slate-400 text-[10.5px]">
+                    Paramétrage indépendant du serveur SMTP réservé à l'entreprise : <strong className="text-slate-700">{tenantConfig?.companyName || activeTenantId}</strong>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-1 rounded-full font-bold text-[10px] flex items-center gap-1 ${
+                    hasSmtpModule ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
+                  }`}>
+                    {hasSmtpModule ? (
+                      <>
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        Module Inclus au Contrat
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-3 h-3 text-amber-600" />
+                        Module Non Souscrit
+                      </>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {!hasSmtpModule ? (
+                <div className="p-8 bg-slate-900 text-white rounded-xl shadow-md border border-slate-800 space-y-6 text-center max-w-3xl mx-auto my-4">
+                  <div className="inline-flex items-center justify-center w-14 h-14 bg-indigo-500/10 rounded-full border border-indigo-500/20 text-indigo-400 mb-2">
+                    <Lock className="w-7 h-7 text-amber-400" />
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-base font-bold text-white">
+                      🔒 Module Serveur SMTP Dédié Non Inclus dans votre Contrat
+                    </h4>
+                    <p className="text-slate-300 text-xs leading-relaxed max-w-xl mx-auto">
+                      Le module <strong>Serveur d'Envoi E-mails Gmail SMTP Dédié</strong> n'est pas activé dans la licence actuelle de <span className="text-indigo-300 font-bold">{tenantConfig?.companyName || activeTenantId}</span>.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left bg-slate-950/80 p-4 rounded-lg border border-slate-800/80 text-[11px] text-slate-300">
+                    <div className="flex items-start space-x-2.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="text-white block font-semibold">Isolation Totale des Identifiants</strong>
+                        Mots de passe d'application et comptes SMTP 100% étanches et isolés des autres filiales.
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-2.5">
+                      <Send className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="text-white block font-semibold">Adresse Expéditeur Personnalisée</strong>
+                        Notifications transmises sous votre nom d'entreprise et domaine propre (ex: @{tenantConfig?.companyName ? tenantConfig.companyName.toLowerCase().replace(/\s+/g, '') + '.com' : 'votre-entreprise.com'}).
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-2.5">
+                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="text-white block font-semibold">Alertes Automatiques de Risques</strong>
+                        Avis d'urgence immédiats envoyés aux responsables sur création de Risques Critiques (&ge; 15/25).
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-2.5">
+                      <FileText className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="text-white block font-semibold">Journal d'Audit des Envois</strong>
+                        Historique détaillé et traçabilité de tous les e-mails expédiés avec identifiants uniques de transaction.
+                      </div>
+                    </div>
+                  </div>
+
+                  {licenseUpgradeRequested ? (
+                    <div className="p-4 bg-emerald-900/40 border border-emerald-500/30 rounded-lg text-emerald-200 text-xs font-semibold flex items-center justify-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      Demande d'activation transmise avec succès au SuperAdmin Commercial. La fonctionnalité sera débloquée dès mise à jour de votre contrat de licence.
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setLicenseUpgradeRequested(true)}
+                      className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-lg hover:shadow-indigo-500/25 transition text-xs cursor-pointer inline-flex items-center gap-2"
+                    >
+                      <Mail className="w-4 h-4" />
+                      📩 Solliciter l'Activation du Module auprès de l'Administrateur Commercial
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Status Banner */}
+                  {smtpStatusMsg && (
+                    <div className={`p-4 rounded-xl border flex items-start space-x-3 text-xs shadow-sm ${
+                      smtpStatusMsg.type === 'success' 
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+                        : 'bg-red-50 border-red-200 text-red-900'
+                    }`}>
+                      {smtpStatusMsg.type === 'success' ? (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                      )}
+                      <div className="space-y-1">
+                        <p className="font-bold">{smtpStatusMsg.text}</p>
+                        {smtpStatusMsg.details && (
+                          <p className="text-[11px] text-slate-600 font-mono bg-white/70 p-2 rounded border border-slate-200 mt-1">
+                            {smtpStatusMsg.details}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    {/* LEFT COLUMN: Configuration Form & Test Panel */}
+                    <div className="lg:col-span-7 space-y-6">
+                      
+                      {/* Configuration Form */}
+                      <form onSubmit={handleSaveSmtp} className="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                          <div className="flex items-center space-x-2">
+                            <Server className="w-4 h-4 text-indigo-600" />
+                            <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Identifiants & Serveur SMTP D'Entreprise</h4>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowAppPassHelp(!showAppPassHelp)}
+                            className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 underline cursor-pointer"
+                          >
+                            <HelpCircle className="w-3.5 h-3.5" />
+                            Comment obtenir le Mot de Passe Google ?
+                          </button>
+                        </div>
+
+                        {/* App Password Guide Modal/Accordion */}
+                        {showAppPassHelp && (
+                          <div className="p-3.5 bg-indigo-50/80 border border-indigo-200 rounded-lg text-[11px] text-indigo-950 space-y-2">
+                            <div className="font-bold flex items-center gap-1.5 text-indigo-900">
+                              <Key className="w-4 h-4 text-indigo-600" />
+                              Guide d'activation du Mot de Passe d'Application Google (16 caractères) :
+                            </div>
+                            <ol className="list-decimal list-inside space-y-1 text-[10.5px] leading-relaxed text-indigo-900">
+                              <li>Connectez-vous à votre compte Google d'entreprise (<span className="font-mono">myaccount.google.com</span>).</li>
+                              <li>Allez dans l'onglet <strong>Sécurité</strong> et activez la <strong>Validation en deux étapes</strong> si ce n'est pas déjà fait.</li>
+                              <li>Recherchez <strong>Mots de passe d'application</strong> dans la barre de recherche en haut.</li>
+                              <li>Créez une application nommée <span className="font-mono font-bold">Sogesti GRC</span> puis copiez le code à 16 lettres généré.</li>
+                              <li>Collez ce code dans le champ <strong>Mot de passe d'application</strong> ci-dessous.</li>
+                            </ol>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Hôte SMTP</label>
+                            <input 
+                              type="text"
+                              required
+                              value={smtpHost}
+                              onChange={(e) => setSmtpHost(e.target.value)}
+                              placeholder="smtp.gmail.com"
+                              className="w-full bg-white border border-slate-250 rounded p-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Port</label>
+                              <input 
+                                type="number"
+                                required
+                                value={smtpPort}
+                                onChange={(e) => setSmtpPort(parseInt(e.target.value, 10) || 587)}
+                                className="w-full bg-white border border-slate-250 rounded p-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="space-y-1 flex flex-col justify-end pb-1">
+                              <label className="flex items-center space-x-1.5 cursor-pointer text-[10px] font-bold text-slate-600">
+                                <input 
+                                  type="checkbox"
+                                  checked={smtpSecure}
+                                  onChange={(e) => setSmtpSecure(e.target.checked)}
+                                  className="rounded border-slate-300 text-indigo-600 focus:ring-0"
+                                />
+                                <span>SSL (Port 465)</span>
+                              </label>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1 sm:col-span-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Compte Google / Identifiant SMTP</label>
+                            <input 
+                              type="email"
+                              required
+                              value={smtpUser}
+                              onChange={(e) => setSmtpUser(e.target.value)}
+                              placeholder="direction.grc@sogesti-grc.com"
+                              className="w-full bg-white border border-slate-250 rounded p-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+
+                          <div className="space-y-1 sm:col-span-2">
+                            <div className="flex justify-between items-center">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Mot de Passe d'Application Google (16 Lettres)</label>
+                              {smtpHasPass && !smtpPass && (
+                                <span className="text-[9.5px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                  ✓ Mot de passe enregistré
+                                </span>
+                              )}
+                            </div>
+                            <input 
+                              type="password"
+                              value={smtpPass}
+                              onChange={(e) => setSmtpPass(e.target.value)}
+                              placeholder={smtpHasPass ? "•••••••••••••••• (Laissez vide pour conserver)" : "ex: abcd efgh ijkl mnop"}
+                              className="w-full bg-white border border-slate-250 rounded p-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Nom d'Expéditeur Affiché</label>
+                            <input 
+                              type="text"
+                              value={smtpFromName}
+                              onChange={(e) => setSmtpFromName(e.target.value)}
+                              placeholder="Sogesti S.A. - Direction RiskFlow"
+                              className="w-full bg-white border border-slate-250 rounded p-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">E-mail d'En-tête (Reply-To)</label>
+                            <input 
+                              type="email"
+                              value={smtpFromEmail}
+                              onChange={(e) => setSmtpFromEmail(e.target.value)}
+                              placeholder="noreply@sogesti-grc.com"
+                              className="w-full bg-white border border-slate-250 rounded p-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                          <label className="flex items-center space-x-2 cursor-pointer">
+                            <input 
+                              type="checkbox"
+                              checked={smtpEnabled}
+                              onChange={(e) => setSmtpEnabled(e.target.checked)}
+                              className="rounded border-slate-300 text-indigo-600 focus:ring-0"
+                            />
+                            <span className="text-xs font-bold text-slate-700">Activer l'expédition automatique des notifications e-mail</span>
+                          </label>
+
+                          <button
+                            type="submit"
+                            disabled={isSavingSmtp}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow transition text-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                            {isSavingSmtp ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Check className="w-3.5 h-3.5" />
+                            )}
+                            Enregistrer la Configuration SMTP
+                          </button>
+                        </div>
+                      </form>
+
+                      {/* Quick Test Panel */}
+                      <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 shadow-sm">
+                        <div className="flex items-center space-x-2">
+                          <Send className="w-4 h-4 text-emerald-600" />
+                          <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Test de Connexion & Expédition d'E-mail Réel</h4>
+                        </div>
+                        <p className="text-slate-500 text-[11px] leading-relaxed">
+                          Saisissez une adresse e-mail destinataire ci-dessous pour tester la connexion réseau et recevoir un message de validation.
+                        </p>
+                        <div className="flex flex-wrap sm:flex-nowrap gap-2">
+                          <input 
+                            type="email"
+                            value={testRecipient}
+                            onChange={(e) => setTestRecipient(e.target.value)}
+                            placeholder="ex: admin.conformite@entreprise.com"
+                            className="flex-grow bg-slate-50 border border-slate-250 rounded p-2 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleTestSmtp}
+                            disabled={isTestingSmtp}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow transition text-xs cursor-pointer flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+                          >
+                            {isTestingSmtp ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Send className="w-3.5 h-3.5" />
+                            )}
+                            🧪 Tester la Connexion SMTP
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* RIGHT COLUMN: Audit Logs & Automated Rules */}
+                    <div className="lg:col-span-5 space-y-6">
+                      
+                      {/* E-mail Audit Log */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <History className="w-4 h-4 text-indigo-600" />
+                            <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Journal d'Audit des E-mails Expédiés</h4>
+                          </div>
+                          <button
+                            onClick={handleClearSmtpLogs}
+                            className="text-[10px] text-red-600 hover:text-red-800 font-semibold cursor-pointer"
+                          >
+                            Vider le journal
+                          </button>
+                        </div>
+
+                        <div className="max-h-[280px] overflow-y-auto space-y-2 pr-1">
+                          {smtpLogs.length === 0 ? (
+                            <div className="text-center py-6 text-slate-400 text-[11px] italic">
+                              Aucun e-mail expédié récemment pour cette entreprise.
+                            </div>
+                          ) : (
+                            smtpLogs.map((log) => (
+                              <div key={log.id} className="p-2.5 bg-white rounded border border-slate-200 text-[11px] space-y-1 shadow-2xs">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-bold text-slate-800 truncate max-w-[180px]">{log.to}</span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                                    log.status === 'Envoyé' 
+                                      ? 'bg-emerald-100 text-emerald-800' 
+                                      : log.status === 'Échec'
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-amber-100 text-amber-800'
+                                  }`}>
+                                    {log.status}
+                                  </span>
+                                </div>
+                                <div className="text-slate-600 font-medium truncate">{log.subject}</div>
+                                <div className="flex justify-between items-center text-[9.5px] text-slate-400 font-mono">
+                                  <span>{log.type}</span>
+                                  <span>{new Date(log.timestamp).toLocaleTimeString('fr-FR')}</span>
+                                </div>
+                                {log.error && (
+                                  <div className="text-[10px] text-red-600 font-mono bg-red-50 p-1 rounded border border-red-150 mt-1">
+                                    {log.error}
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Automated GRC Dispatch Rules */}
+                      <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 shadow-sm text-[11px]">
+                        <div className="flex items-center space-x-2 border-b border-slate-100 pb-2">
+                          <Sparkles className="w-4 h-4 text-amber-500" />
+                          <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Règles d'Expédition Automatisées</h4>
+                        </div>
+                        <ul className="space-y-2 text-slate-600">
+                          <li className="flex items-start space-x-2">
+                            <span className="text-red-500 font-bold">🚨</span>
+                            <span><strong>Risque Critique :</strong> Alerte e-mail instantanée si Score Net &ge; 15.</span>
+                          </li>
+                          <li className="flex items-start space-x-2">
+                            <span className="text-indigo-500 font-bold">📋</span>
+                            <span><strong>Plan d'Action :</strong> Notification au Responsable lors de l'assignation.</span>
+                          </li>
+                          <li className="flex items-start space-x-2">
+                            <span className="text-emerald-500 font-bold">🕵️</span>
+                            <span><strong>Missions d'Audit :</strong> Convocation automatique des auditeurs & audités.</span>
+                          </li>
+                          <li className="flex items-start space-x-2">
+                            <span className="text-amber-500 font-bold">📅</span>
+                            <span><strong>Bilan d'Exercice :</strong> Envoi du rapport annuel lors de la clôture.</span>
+                          </li>
+                        </ul>
+                      </div>
+
                     </div>
                   </div>
                 </div>

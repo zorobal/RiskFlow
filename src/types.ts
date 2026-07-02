@@ -292,7 +292,7 @@ export interface Licence {
   typeAbonnement: 'Mensuel' | 'Annuel' | 'Sur devis';
   nombreUtilisateursMax: number;
   nombreUtilisateursActuel: number;
-  modulesActives: ('Cartographie' | 'Plans d\'action' | 'Audit' | 'Conformité' | 'Reporting')[];
+  modulesActives: ('Cartographie' | 'Plans d\'action' | 'Audit' | 'Conformité' | 'Reporting' | 'Serveur SMTP' | 'SMTP')[];
   dateDebut: string;
   dateFin: string;
   statutLicence: 'Active' | 'En période d\'essai' | 'Expirée' | 'Suspendue';

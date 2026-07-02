@@ -639,7 +639,7 @@ export const PRESET_LICENCES: Licence[] = [
     typeAbonnement: 'Annuel',
     nombreUtilisateursMax: 50,
     nombreUtilisateursActuel: 4,
-    modulesActives: ['Cartographie', 'Plans d\'action', 'Audit', 'Conformité', 'Reporting'],
+    modulesActives: ['Cartographie', 'Plans d\'action', 'Audit', 'Conformité', 'Reporting', 'Serveur SMTP'],
     dateDebut: '2026-01-10',
     dateFin: '2027-01-09',
     statutLicence: 'Active',

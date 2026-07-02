@@ -536,7 +536,7 @@ export default function SuperAdminModule({
     maxServices: 15,
     maxSitesLocaux: 5,
     maxFiliales: 5,
-    modules: ['Cartographie', 'Plans d\'action'] as ('Cartographie' | 'Plans d\'action' | 'Audit' | 'Conformité' | 'Reporting')[],
+    modules: ['Cartographie', 'Plans d\'action'] as ('Cartographie' | 'Plans d\'action' | 'Audit' | 'Conformité' | 'Reporting' | 'Serveur SMTP')[],
     // extra company details
     pays: 'Cameroun',
     ville: 'Yaoundé',
@@ -2328,7 +2328,7 @@ export default function SuperAdminModule({
                     <div className="space-y-1.5">
                       <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Modules Activés :</p>
                       <div className="flex flex-wrap gap-1.5">
-                        {['Cartographie', 'Plans d\'action', 'Audit', 'Conformité', 'Reporting'].map((modName) => {
+                        {['Cartographie', 'Plans d\'action', 'Audit', 'Conformité', 'Reporting', 'Serveur SMTP'].map((modName) => {
                           const isAct = lic.modulesActives.includes(modName as any);
                           return (
                             <span 
@@ -3954,7 +3954,7 @@ export default function SuperAdminModule({
                 <div className="space-y-1.5 col-span-2">
                   <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Modules inclus au contrat :</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {['Cartographie', 'Plans d\'action', 'Audit', 'Conformité', 'Reporting'].map((mod) => (
+                    {['Cartographie', 'Plans d\'action', 'Audit', 'Conformité', 'Reporting', 'Serveur SMTP'].map((mod) => (
                       <label key={mod} className="flex items-center space-x-2 bg-slate-950 p-2 rounded border border-slate-850 cursor-pointer hover:bg-slate-900">
                         <input 
                           type="checkbox"
@@ -4258,7 +4258,7 @@ export default function SuperAdminModule({
               <div className="space-y-1.5">
                 <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Activer/Désactiver des modules :</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {['Cartographie', 'Plans d\'action', 'Audit', 'Conformité', 'Reporting'].map((mod) => (
+                  {['Cartographie', 'Plans d\'action', 'Audit', 'Conformité', 'Reporting', 'Serveur SMTP'].map((mod) => (
                     <label key={mod} className="flex items-center space-x-2 bg-slate-950 p-2 rounded border border-slate-850 cursor-pointer hover:bg-slate-900">
                       <input 
                         type="checkbox"
